@@ -197,7 +197,9 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
         })
         .filter((x) => x.hits > 0)
         .sort((a, b) => b.hits - a.hits);
-      setAiResultIds(scored.map((x) => x.id));
+      // Solo las que coinciden en bastantes términos comparadas con la mejor (si no, salía medio catálogo)
+      const minHits = Math.max(1, Math.ceil((scored[0]?.hits ?? 0) / 3));
+      setAiResultIds(scored.filter((x) => x.hits >= minHits).map((x) => x.id));
     } catch (err) {
       console.error("AI Search Error:", err);
       alert(err instanceof Error && err.message.includes("límite") ? err.message : "Error en la búsqueda inteligente. Inténtalo de nuevo.");
