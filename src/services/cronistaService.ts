@@ -201,8 +201,11 @@ function searchLocalContext(query: string, allArticles: ArchiveArticle[], allPho
     return { photo, score, matchCount };
   });
 
+  // Con preguntas de varias palabras, al menos 2 coincidencias: si no, «Vasco-Navarro» traía fotos de
+  // cualquier cosa con «Navarro»
+  const minMatches = Math.min(2, queryTerms.filter((t) => t.weight > 1).length);
   const topPhotos = scoredPhotos
-    .filter((s) => s.score > 2.0)
+    .filter((s) => s.score > 2.0 && s.matchCount >= minMatches)
     .sort((a, b) => b.score - a.score)
     .slice(0, 4)
     .map((s) => s.photo);

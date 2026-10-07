@@ -45,7 +45,7 @@ export function CronistaChat({ user }: CronistaChatProps) {
       id: "welcome",
       role: "assistant",
       content:
-        "¡Saludos, vecino y visitante de Estella-Lizarra! Soy **El Cronista de Estella**, tu guía por la memoria histórica de nuestra noble ciudad del Ega.\n\nTengo acceso a nuestros fondos de más de **1.200 fotografías históricas** y a una hemeroteca de **1.700 crónicas y artículos** de la revista *Calle Mayor* (desde 1992), *Radio Estella COPE*, el *Diario de Noticias* y documentos de investigación.\n\n¿Qué rincón, personaje o suceso de Estella te gustaría rememorar hoy?",
+        "¡Saludos, vecino y visitante de Estella-Lizarra! Soy **El Cronista de Estella**, tu guía por la memoria histórica de nuestra noble ciudad del Ega.\n\nTengo acceso a nuestros fondos de más de **1.200 fotografías históricas** y a una hemeroteca de **decenas de miles de noticias y artículos**: la revista *Calle Mayor* (desde 1992), *Radio Estella COPE*, el *Diario de Noticias*, el *Ayuntamiento*, *Estella Digital* y la revista *Príncipe de Viana* (desde 1940). Siempre te digo de dónde sale cada dato.\n\n¿Qué rincón, personaje o suceso de Estella te gustaría rememorar hoy?",
       timestamp: "Ahora",
     },
   ]);
@@ -187,7 +187,7 @@ export function CronistaChat({ user }: CronistaChatProps) {
               </span>
             </div>
             <p className="text-xs text-[#5A5A40] font-serif mt-0.5 hidden sm:block">
-              Conversa con la historia local documentada con 1.216 fotos y 1.725 crónicas periodísticas.
+              Conversa con la historia local: 1.216 fotos y decenas de miles de noticias y artículos, siempre con su fuente.
             </p>
           </div>
         </div>

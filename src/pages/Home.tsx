@@ -236,7 +236,9 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
   const filteredPhotos = useMemo(() => {
     let base = photos;
     if (isAiMode && aiResultIds !== null) {
-      base = photos.filter((p) => aiResultIds.includes(p.id));
+      // En el orden de la IA (de más a menos coincidencias), no en el del catálogo
+      const byId = new Map(photos.map((p) => [p.id, p]));
+      base = aiResultIds.map((id) => byId.get(id)).filter((p): p is Photo => !!p);
     }
     return base.filter((photo) => {
       if (searchTerm && !isAiMode) {
