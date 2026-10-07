@@ -1,8 +1,8 @@
-import { GoogleGenAI } from "@google/genai";
 import { getArchiveArticles, getArchivePhotos } from "../lib/dataService";
 import { ArchiveArticle, Photo } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// La IA vive en el servidor (función archivoIA de Estella Escape City): la clave no viaja a la web
+export const ARCHIVO_IA_URL = "https://us-central1-estellaescape.cloudfunctions.net/archivoIA";
 
 export interface CronistaResponse {
   answer: string;
@@ -222,96 +222,44 @@ export async function askCronista(
     getArchivePhotos(),
   ]);
 
-  let { topArticles, topPhotos } = searchLocalContext(question, allArticles, allPhotos);
+  const { topArticles, topPhotos } = searchLocalContext(question, allArticles, allPhotos);
 
-  // Si no hay API key o hay fallo de red, devolvemos respuesta basada en el corpus local
-  if (!process.env.GEMINI_API_KEY) {
-    let answer = `He consultado el Archivo Histórico de Estella-Lizarra para tu búsqueda sobre **"${question}"**.\n\n`;
-    if (topArticles.length > 0) {
-      answer += `He localizado **${topArticles.length} crónicas documentadas** en nuestra hemeroteca (Calle Mayor, Radio Estella y Diario de Noticias):\n\n`;
-      topArticles.slice(0, 5).forEach((a) => {
-        answer += `* **${a.titulo}** (${a.fuente}, ${a.fecha || a.year || "s/f"}): ${a.resumen || ""}\n`;
-      });
-      answer += `\nA continuación tienes las fotografías históricas vinculadas que puedes ver en detalle o descargar.`;
-    } else {
-      answer += `No he encontrado registros exactos para esos términos específicos, pero puedes explorar nuestro catálogo con más de 1.200 fotografías históricas.`;
-    }
-    return {
-      answer,
-      citedArticles: topArticles,
-      relevantPhotos: topPhotos,
-    };
-  }
-
-  // Preparar el contexto estructurado de crónicas reales (con resúmenes auténticos)
-  const articlesContextText = topArticles
-    .map((a, i) => {
-      const year = a.year || (a.fecha ? a.fecha.slice(0, 4) : "S.F.");
-      return `[Crónica ${i + 1}]
-- Título: "${a.titulo}"
-- Fuente: ${a.fuente} (${year})
-- Sección: ${a.seccion || "General"}
-- Contenido y Resumen: "${a.resumen || "Información histórica local vinculada al archivo gráfico."}"
-- Foto vinculada: "${a.photoTitle}" (ID: ${a.photoId})`;
-    })
-    .join("\n\n");
-
-  // Preparar el contexto de fotografías
-  const photosContextText = topPhotos
-    .map((p, i) => {
-      return `[Foto ${i + 1}] ID: ${p.id} | Título: "${p.title || p.description}" | Año: ${p.year || "S.F."} | Lugar: ${p.location || "Estella"} | Colección/Autor: ${p.owner || p.photographer || "Archivo"}`;
-    })
-    .join("\n");
-
-  const systemInstruction = `Eres "El Cronista de Estella-Lizarra", el sabio y apasionado historiador del Archivo Histórico y la Hemeroteca de Estella-Lizarra (Navarra).
-Tienes acceso a una hemeroteca de 1.725 crónicas históricas con resúmenes documentales de la revista Calle Mayor (desde 1992), Radio Estella COPE, el Diario de Noticias de Navarra y libros de historia local, además de 1.216 fotografías catalogadas.
-
-Tu tono debe ser culto pero cercano, ameno, riguroso y elocuente, como un cronista que adora las historias, personajes, fiestas, gremios y rincones de Estella-Lizarra.
-
-Instrucciones:
-1. Responde en español con explicaciones DETALLADAS, COMPLETAS Y RICAS en datos verídicos (no seas telegráfico).
-2. Aprovecha al máximo la información de las [Crónicas] aportadas en el contexto: cita los hechos, fechas, personas, declaraciones y anécdotas que aparezcan en ellas.
-3. Menciona la procedencia de los datos (por ejemplo: "Tal como recogió la revista Calle Mayor...", o "Según las crónicas radiofónicas de Radio Estella COPE de aquel año...").
-4. Si el contexto aportado no es suficiente para algún aspecto, complementa con conocimiento verídico y riguroso sobre la historia de Estella-Lizarra (patrimonio medieval, camino de santiago, fuero de 1090, el trenico vasco-navarro, las inundaciones del Ega, el Santo Sepulcro, la Virgen del Puy, las Guerras Carlistas, etc.).
-5. Estructura la respuesta con formato Markdown claro: títulos con negrita, citas o listas para una lectura agradable.`;
-
-  const conversationHistory = history
-    .slice(-4)
-    .map((m) => `${m.role === "user" ? "Ciudadano" : "Cronista"}: ${m.content}`)
-    .join("\n\n");
-
-  const prompt = `${conversationHistory ? `Conversación previa:\n${conversationHistory}\n\n` : ""}Pregunta del ciudadano: "${question}"
-
-═══════════════════════════════════════════════════════════════════
-DOCUMENTACIÓN Y CRÓNICAS RECUPERADAS DE LA HEMEROTECA DE ESTELLA:
-═══════════════════════════════════════════════════════════════════
-${articlesContextText || "No se han encontrado crónicas textuales exactas en la búsqueda preliminar; utiliza tu amplio bagaje sobre la historia y patrimonio de Estella-Lizarra."}
-
-═══════════════════════════════════════════════════════════════════
-FOTOGRAFÍAS HISTÓRICAS DEL ARCHIVO VINCULADAS:
-═══════════════════════════════════════════════════════════════════
-${photosContextText || "No hay fotos vinculadas específicas para esta pregunta."}
-
-Por favor, como Cronista de Estella-Lizarra, ofrece tu crónica completa y amena respondiendo a la pregunta:`;
-
+  // El Cronista responde con el Brain v3 (Calle Mayor, Radio Estella, Diario de Noticias, Ayuntamiento,
+  // Estella Digital, Príncipe de Viana) y las fotos del archivo que encajan con la pregunta
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        systemInstruction,
-        temperature: 0.65,
-      },
+    const resp = await fetch(ARCHIVO_IA_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        accion: "cronista",
+        question,
+        history: history.slice(-4),
+        photos: topPhotos.map((p) => ({ title: p.title || p.description || "", year: p.year ?? "", location: p.location || "" })),
+      }),
     });
-
-    const answer = response.text || "No se ha podido generar la crónica en este momento.";
+    const data = await resp.json();
+    if (resp.status === 429) {
+      return { answer: data.error, citedArticles: topArticles, relevantPhotos: topPhotos };
+    }
+    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+    const sources = (data.sources || []) as Array<{ n: number; titulo: string; fuente: string; fecha: string; url: string }>;
     return {
-      answer,
-      citedArticles: topArticles,
+      answer: data.answer,
+      citedArticles: sources.map((src) => ({
+        id: `brain-${src.n}`,
+        titulo: `[${src.n}] ${src.titulo}`,
+        fuente: src.fuente,
+        fecha: src.fecha,
+        url: src.url,
+        score: 0,
+        photoId: "",
+        photoTitle: "",
+        photoThumbnail: "",
+      })),
       relevantPhotos: topPhotos,
     };
   } catch (err: any) {
-    console.warn("Fallo llamando a Gemini, usando síntesis local:", err);
+    console.warn("El Cronista no responde, usando síntesis local:", err);
 
     let fallbackAnswer = `Como Cronista de Estella-Lizarra, he consultado los fondos del archivo para tu consulta sobre **"${question}"**.\n\n`;
     if (topArticles.length > 0) {

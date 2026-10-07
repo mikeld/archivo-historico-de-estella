@@ -18,14 +18,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { PhotoDetailModal } from "../components/PhotoDetailModal";
 import { FeaturedContent } from "../components/FeaturedContent";
 import { EfemeridesCard } from "../components/EfemeridesCard";
-import { GoogleGenAI, Type } from "@google/genai";
 import { Link } from "react-router-dom";
 import { Newspaper, History } from "lucide-react";
 import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { getArchivePhotos, getArchivePhotoById } from "../lib/dataService";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import { ARCHIVO_IA_URL } from "../services/cronistaService";
 
 export function formatTag(tag: string): string {
   if (!tag) return "";
@@ -181,25 +179,28 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
     setIsAiSearching(true);
     setAiResultIds(null);
     try {
-      const photosData = photos.map((p) => ({
-        id: p.id, desc: p.description, year: p.year,
-        owner: p.owner, tags: p.tags,
-      }));
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: `Analiza la búsqueda semántica del usuario y devuelve los IDs de las fotos que mejor coincidan.
-Query: "${searchTerm}"
-Catálogo (JSON): ${JSON.stringify(photosData)}
-Devuelve SOLO un array JSON con los IDs coincidentes.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } },
-        },
+      // La IA (en el servidor) traduce la búsqueda a términos; el filtrado se hace aquí con el catálogo
+      const resp = await fetch(ARCHIVO_IA_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "buscarFotos", query: searchTerm }),
       });
-      setAiResultIds(JSON.parse(response.text.trim()));
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+      const terms = ((data.terms || []) as string[]).map(normalizeText);
+      const scored = photos
+        .map((p) => {
+          const text = normalizeText(
+            [p.title, p.description, p.location, p.owner, p.year, ...(p.tags || [])].filter(Boolean).join(" ")
+          );
+          return { id: p.id, hits: terms.filter((t) => text.includes(t)).length };
+        })
+        .filter((x) => x.hits > 0)
+        .sort((a, b) => b.hits - a.hits);
+      setAiResultIds(scored.map((x) => x.id));
     } catch (err) {
       console.error("AI Search Error:", err);
-      alert("Error en la búsqueda inteligente. Inténtalo de nuevo.");
+      alert(err instanceof Error && err.message.includes("límite") ? err.message : "Error en la búsqueda inteligente. Inténtalo de nuevo.");
     } finally {
       setIsAiSearching(false);
     }

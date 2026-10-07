@@ -19,10 +19,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Photo } from "../types";
-import { GoogleGenAI, Type, Schema } from "@google/genai";
 import imageCompression from 'browser-image-compression';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import { ARCHIVO_IA_URL } from "../services/cronistaService";
 
 interface UploadProps {
   user: User | null;
@@ -112,65 +110,36 @@ export function Upload({ user }: UploadProps) {
     setAiLoading(true);
     
     try {
-      // Convert file to base64
-      const buffer = await file.arrayBuffer();
-      const base64Str = btoa(
-        new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-      );
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text: "Analiza esta fotografía histórica. Devuelve un objeto JSON con la descripción detallada, un array de etiquetas/tags (max 5), el año estimado (número de 4 dígitos) y si parece retocada o coloreada (booleano)."
-              },
-              {
-                 inlineData: {
-                    data: base64Str,
-                    mimeType: file.type
-                 }
-              }
-            ]
-          }
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              description: { type: Type.STRING },
-              year: { type: Type.INTEGER },
-              tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-              isRetouched: { type: Type.BOOLEAN }
-            },
-            required: ["description", "year", "tags", "isRetouched"]
-          } as Schema
-        }
+      // Imagen reducida (máx. 1024 px) para la IA del servidor; exige sesión (token de Firebase)
+      const small = await imageCompression(file, { maxWidthOrHeight: 1024, maxSizeMB: 0.8, fileType: "image/jpeg" });
+      const image = await imageCompression.getDataUrlFromFile(small);
+      const resp = await fetch(ARCHIVO_IA_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await user!.getIdToken()}`,
+        },
+        body: JSON.stringify({ accion: "describirFoto", image }),
       });
-      
-      if (response.text) {
-        const data = JSON.parse(response.text);
-        
-        // Auto-fill form
-        const currentData = watch();
-        if (!currentData.description && data.description) {
-           setValue("description", data.description);
-        }
-        if (!currentData.year && data.year) {
-           setValue("year", data.year);
-        }
-        if (!currentData.tags && data.tags) {
-           setValue("tags", data.tags.join(", "));
-        }
-        setValue("isRetouched", (data.isRetouched ? "true" : "false") as any);
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || `HTTP ${resp.status}`);
+
+      // Auto-fill form
+      const currentData = watch();
+      if (!currentData.description && result.description) {
+         setValue("description", result.description);
       }
+      if (!currentData.year && result.year) {
+         setValue("year", result.year);
+      }
+      if (!currentData.tags && result.tags) {
+         setValue("tags", result.tags.join(", "));
+      }
+      setValue("isRetouched", (result.isRetouched ? "true" : "false") as any);
       
     } catch(err) {
       console.error(err);
-      setError("No se pudo analizar la imagen con IA");
+      setError(err instanceof Error && err.message ? err.message : "No se pudo analizar la imagen con IA");
     } finally {
       setAiLoading(false);
     }

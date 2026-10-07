@@ -158,8 +158,13 @@ export function CronistaChat({ user }: CronistaChatProps) {
     });
   };
 
+  // Se escapa el HTML antes de aplicar negritas/cursivas: el texto viene de la IA y de la pregunta
   const renderInlineMarkdown = (str: string) => {
     return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.*?)\*/g, "<em>$1</em>");
   };
@@ -264,7 +269,7 @@ export function CronistaChat({ user }: CronistaChatProps) {
                     Crónicas consultadas en la hemeroteca:
                   </div>
                   <div className="space-y-1.5">
-                    {msg.articles.slice(0, 4).map((art) => (
+                    {msg.articles.slice(0, 8).map((art) => (
                       <div
                         key={art.id}
                         className="flex items-center justify-between text-xs bg-white p-2 rounded-xl border border-gray-200 hover:border-[#5A5A40] transition-colors"

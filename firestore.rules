@@ -158,7 +158,8 @@ service cloud.firestore {
     match /news/{newsId} {
       allow read: if true;
       
-      allow create: if isSignedIn() && isValidId(newsId) && isValidNews(incoming());
+      // Las importa el admin (import-navarra.html)
+      allow create: if isAdmin() && isValidId(newsId) && isValidNews(incoming());
       
       allow update: if isAdmin() && isValidNews(incoming());
       
@@ -181,7 +182,9 @@ service cloud.firestore {
       allow update: if isSignedIn() && isValidCuriosity(incoming()) && (
         isEditor() ||
         (existing().addedBy == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['text', 'type'])) ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['likes'])
+        (incoming().diff(existing()).affectedKeys().hasOnly(['likes']) &&
+         incoming().likes is int &&
+         (incoming().likes == existing().get('likes', 0) + 1 || incoming().likes == existing().get('likes', 0) - 1))
       );
       allow delete: if isAdmin() || (isSignedIn() && existing().addedBy == request.auth.uid);
     }
@@ -197,7 +200,8 @@ service cloud.firestore {
 
     match /efemerides/{dayId} {
       allow read: if true;
-      allow create, update: if isValidId(dayId) && isValidEfemeride(incoming());
+      // Ya no las escribe la web (vienen de la función efemeridesDia): solo admin
+      allow create, update: if isAdmin() && isValidId(dayId) && isValidEfemeride(incoming());
       allow delete: if isAdmin();
     }
   }

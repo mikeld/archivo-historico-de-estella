@@ -374,17 +374,10 @@ export function Efemerides({ user }: { user: User | null }) {
       {selectedPhotoIndex !== null && (
         <PhotoDetailModal
           photo={dayPhotos[selectedPhotoIndex]}
+          photos={dayPhotos}
+          currentIndex={selectedPhotoIndex}
+          onNavigate={(newIndex) => setSelectedPhotoIndex(newIndex)}
           onClose={() => setSelectedPhotoIndex(null)}
-          onNext={() =>
-            setSelectedPhotoIndex((i) =>
-              i !== null && i < dayPhotos.length - 1 ? i + 1 : 0
-            )
-          }
-          onPrev={() =>
-            setSelectedPhotoIndex((i) =>
-              i !== null && i > 0 ? i - 1 : dayPhotos.length - 1
-            )
-          }
           user={user}
         />
       )}
