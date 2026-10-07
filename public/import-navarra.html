@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Importar Fotos · Archivo de Navarra</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
+    h1 { color: #333; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    button { padding: 10px 20px; background: #4285f4; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; margin-right: 10px; }
+    button:hover { background: #3367d6; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    button.danger { background: #d32f2f; }
+    #status { font-weight: bold; margin-bottom: 8px; }
+    #log { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 6px; font-family: monospace; font-size: 13px; height: 300px; overflow-y: auto; white-space: pre-wrap; }
+    .ok { color: #4ec9b0; }
+    .err { color: #f48771; }
+    .info { color: #9cdcfe; }
+    .warn { color: #dcdcaa; }
+    label { font-weight: bold; display: block; margin-bottom: 6px; }
+    input[type=file] { display: block; margin-bottom: 12px; }
+    #preview { margin-top: 16px; }
+    .preview-item { border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 12px; background: #fafafa; }
+    .preview-item img { max-width: 120px; max-height: 90px; object-fit: cover; border-radius: 4px; float: left; margin-right: 12px; }
+    .preview-item .meta { font-size: 13px; color: #555; overflow: hidden; }
+    .preview-item .title { font-weight: bold; color: #222; margin-bottom: 4px; }
+    .clearfix::after { content: ''; display: table; clear: both; }
+    progress { width: 100%; height: 20px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>🏛️ Importar Fotos · Archivo Abierto de Navarra</h1>
+  <p style="color:#555;font-size:14px">
+    Las imágenes se enlazan directamente desde navarra.es (hotlink) — no se descargan ni se redistribuyen,
+    respetando la licencia <b>Creative Commons Reconocimiento-NoComercial-SinObraDerivada</b> del archivo.
+  </p>
+
+  <div class="card">
+    <div id="status">No iniciado sesión</div>
+    <button id="btnLogin">Entrar con Google</button>
+    <button id="btnLogout" style="display:none" class="danger">Cerrar sesión</button>
+  </div>
+
+  <div class="card">
+    <label>Selecciona el archivo navarra-import/documents.json:</label>
+    <input type="file" id="jsonFile" accept=".json" />
+    <button id="btnPreview" disabled>Vista previa</button>
+    <div id="preview"></div>
+  </div>
+
+  <div class="card">
+    <button id="btnImport" disabled>🚀 Importar a Firebase</button>
+    <button id="btnSkipExisting" style="margin-top:8px" disabled>⏭ Solo importar nuevas (saltar duplicados)</button>
+    <progress id="progress" value="0" max="100" style="display:none"></progress>
+    <p id="importSummary" style="font-size:13px;color:#555"></p>
+  </div>
+
+  <div class="card">
+    <div id="log">Esperando...</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCj2fy9LSRBuPfdAEh-CUMk5T4surT0Vdw",
+      authDomain: "project-4938c1eb-c32b-4494-95c.firebaseapp.com",
+      projectId: "project-4938c1eb-c32b-4494-95c",
+      storageBucket: "project-4938c1eb-c32b-4494-95c.firebasestorage.app",
+      messagingSenderId: "1008559277868",
+      appId: "1:1008559277868:web:68ccf6b6e7e6ef25738e89"
+    };
+    const FIRESTORE_DB_ID = "ai-studio-d55aaa70-4a7c-4319-86af-28ede5db32a3";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app, FIRESTORE_DB_ID);
+
+    let currentUser = null;
+    let documents = [];
+    let pendingItems = [];
+
+    const logEl = document.getElementById("log");
+    const btnLogin = document.getElementById("btnLogin");
+    const btnLogout = document.getElementById("btnLogout");
+    const btnPreview = document.getElementById("btnPreview");
+    const btnImport = document.getElementById("btnImport");
+    const btnSkipExisting = document.getElementById("btnSkipExisting");
+    const statusEl = document.getElementById("status");
+    const progressEl = document.getElementById("progress");
+    const summaryEl = document.getElementById("importSummary");
+
+    function addLog(msg, type = "info") {
+      const span = document.createElement("span");
+      span.className = type;
+      span.textContent = msg + "\n";
+      logEl.appendChild(span);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    onAuthStateChanged(auth, user => {
+      currentUser = user;
+      if (user) {
+        statusEl.textContent = "✅ Sesión: " + user.email;
+        btnLogin.style.display = "none";
+        btnLogout.style.display = "inline-block";
+        btnPreview.disabled = false;
+      } else {
+        statusEl.textContent = "No iniciado sesión";
+        btnLogin.style.display = "inline-block";
+        btnLogout.style.display = "none";
+        btnPreview.disabled = true;
+        btnImport.disabled = true;
+        btnSkipExisting.disabled = true;
+      }
+    });
+
+    btnLogin.onclick = async () => {
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch (e) { addLog("Error login: " + e.message, "err"); }
+    };
+    btnLogout.onclick = () => signOut(auth);
+
+    btnPreview.onclick = async () => {
+      const jsonFile = document.getElementById("jsonFile").files[0];
+      if (!jsonFile) { addLog("Selecciona el JSON primero", "warn"); return; }
+      try {
+        const text = await jsonFile.text();
+        documents = JSON.parse(text);
+        addLog("✅ JSON cargado: " + documents.length + " documentos", "ok");
+        buildPendingItems();
+        renderPreview();
+      } catch (e) {
+        addLog("Error leyendo JSON: " + e.message, "err");
+      }
+    };
+
+    function makeDocId(d) {
+      const base = (d.id || d.reference || d.imageName || d.url || "doc")
+        .toString().replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80);
+      return "navarra_" + base;
+    }
+
+    function buildPendingItems() {
+      pendingItems = [];
+      for (const d of documents) {
+        if (!d.imageUrl) continue;
+        if (!d.title) continue;
+        pendingItems.push({ d, docId: makeDocId(d) });
+      }
+      addLog("📋 " + pendingItems.length + " fotos con imagen y título listas para importar", "ok");
+    }
+
+    function renderPreview() {
+      const container = document.getElementById("preview");
+      container.innerHTML = "";
+      if (!pendingItems.length) {
+        container.innerHTML = "<p>No hay documentos con imagen en el JSON.</p>"; return;
+      }
+      btnImport.disabled = !currentUser;
+      btnSkipExisting.disabled = !currentUser;
+
+      pendingItems.slice(0, 10).forEach(({ d }) => {
+        const div = document.createElement("div");
+        div.className = "preview-item clearfix";
+        const imgEl = document.createElement("img");
+        imgEl.src = d.imageUrl;
+        imgEl.referrerPolicy = "no-referrer";
+        div.appendChild(imgEl);
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.innerHTML =
+          '<div class="title">' + (d.title || "Sin título") + '</div>' +
+          '<div>📅 ' + (d.year || "¿?") + ' | 📍 ' + (d.place || "Estella-Lizarra") + '</div>' +
+          '<div>📷 ' + (d.producer || "Productor desconocido") + ' | 📁 ' + (d.reference || "") + '</div>' +
+          '<div>⚖️ ' + (d.license || "Archivo de Navarra") + '</div>';
+        div.appendChild(meta);
+        container.appendChild(div);
+      });
+
+      if (pendingItems.length > 10) {
+        const p = document.createElement("p");
+        p.textContent = "... y " + (pendingItems.length - 10) + " más";
+        container.appendChild(p);
+      }
+    }
+
+    function buildPhotoDoc(d) {
+      const tags = [...new Set([
+        "navarra", "estella", "lizarra", "archivo de navarra",
+        d.series ? d.series.toLowerCase() : null,
+        d.place ? d.place.split(" / ")[0].toLowerCase() : null,
+        d.year ? String(d.year) : null,
+      ].filter(Boolean))];
+
+      const searchTerms = [...new Set([
+        ...tags,
+        d.producer ? d.producer.toLowerCase() : null,
+        d.reference ? d.reference.toLowerCase() : null,
+      ].filter(Boolean))];
+
+      const photoDoc = {
+        title: d.title || "Foto histórica de Estella",
+        description: d.notes || d.characteristics || "",
+        imageUrl: d.imageUrl,
+        thumbnailUrl: d.imageUrl,
+        owner: "Archivo Real y General de Navarra",
+        uploadedBy: currentUser.uid,
+        location: d.place || "Estella-Lizarra",
+        collection: "Archivo Abierto de Navarra · Fototeca",
+        year: d.year || null,
+        source: "navarra-archive",
+        sourceUrl: d.url || null,
+        tags,
+        searchTerms,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        archiveSeries: d.series || null,
+        archiveReference: d.reference || null,
+        archiveCharacteristics: d.characteristics || null,
+        license: d.license || null,
+        attribution: "Gobierno de Navarra · Archivo Abierto" + (d.reference ? " (" + d.reference + ")" : ""),
+      };
+
+      if (d.producer) {
+        photoDoc.photographer = d.producer;
+        photoDoc.photographerSource = "archivo-navarra";
+      }
+
+      Object.keys(photoDoc).forEach(k => { if (photoDoc[k] === null) delete photoDoc[k]; });
+      return photoDoc;
+    }
+
+    async function importItems(skipDuplicates) {
+      if (!currentUser) { addLog("Inicia sesión primero", "err"); return; }
+      if (!pendingItems.length) { addLog("No hay items para importar", "warn"); return; }
+
+      btnImport.disabled = true;
+      btnSkipExisting.disabled = true;
+      progressEl.style.display = "block";
+      progressEl.value = 0;
+      progressEl.max = pendingItems.length;
+
+      let imported = 0, skipped = 0, errors = 0;
+
+      for (let i = 0; i < pendingItems.length; i++) {
+        const { d, docId } = pendingItems[i];
+        progressEl.value = i + 1;
+
+        try {
+          if (skipDuplicates) {
+            const existing = await getDoc(doc(db, "photos", docId));
+            if (existing.exists()) {
+              addLog("⏭ Saltando (ya existe): " + (d.title || docId), "warn");
+              skipped++;
+              continue;
+            }
+          }
+
+          const photoDoc = buildPhotoDoc(d);
+          await setDoc(doc(db, "photos", docId), photoDoc);
+          addLog("✅ Importada: \"" + photoDoc.title + "\" (" + (d.year || "s/a") + ") — " + (d.producer || "s/autor"), "ok");
+          imported++;
+        } catch (e) {
+          addLog("❌ Error con " + docId + ": " + e.message, "err");
+          errors++;
+        }
+      }
+
+      summaryEl.textContent = `Importadas: ${imported} | Saltadas: ${skipped} | Errores: ${errors}`;
+      addLog(`\n🏁 Fin. Importadas: ${imported} | Saltadas: ${skipped} | Errores: ${errors}`, "ok");
+      btnImport.disabled = false;
+      btnSkipExisting.disabled = false;
+    }
+
+    document.getElementById("btnImport").onclick = () => importItems(false);
+    btnSkipExisting.onclick = () => importItems(true);
+  </script>
+</body>
+</html>

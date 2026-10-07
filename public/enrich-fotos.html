@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Enriquecer fotos con prensa (RAG)</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
+    h1 { color: #333; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    button { padding: 10px 20px; background: #4285f4; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; margin-right: 10px; }
+    button:hover { background: #3367d6; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    button.danger { background: #d32f2f; }
+    .status { font-size: 14px; margin: 4px 0; }
+    #log { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 6px; font-family: monospace; font-size: 13px; height: 360px; overflow-y: auto; white-space: pre-wrap; }
+    .ok { color: #4ec9b0; } .err { color: #f48771; } .info { color: #9cdcfe; } .warn { color: #dcdcaa; }
+    label { font-weight: 600; margin-right: 6px; }
+    .controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    input[type=number] { width: 64px; padding: 4px; }
+    progress { width: 100%; height: 20px; margin: 10px 0; }
+    .hint { color: #666; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>📰 Enriquecer fotos con prensa y documentación (RAG)</h1>
+  <p class="hint">Recorre las fotos del archivo, consulta el Brain del Escape Room (Calle Mayor, prensa, documentación) y guarda en cada foto los artículos relacionados. Requiere dos sesiones porque son dos proyectos Firebase distintos. Inicia ambas con tu cuenta de admin (<b>mikeldiaz0@gmail.com</b>).</p>
+
+  <div class="card">
+    <div class="status" id="statusArchive">🗂️ Archivo: no iniciado</div>
+    <div class="status" id="statusBrain">🧠 Brain: no iniciado</div>
+    <div style="margin-top:10px">
+      <button id="btnLoginArchive">1 · Entrar en el Archivo</button>
+      <button id="btnLoginBrain">2 · Entrar en el Brain</button>
+      <button id="btnLogout" class="danger" style="display:none">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="controls">
+      <span><label>Score mínimo</label><input type="number" id="minScore" value="40" min="0" max="100" /></span>
+      <span><label>Máx. por foto</label><input type="number" id="topN" value="5" min="1" max="15" /></span>
+      <span><label><input type="checkbox" id="force" /> Re-enriquecer ya procesadas</label></span>
+    </div>
+    <button id="btnRun" disabled>🚀 Empezar enriquecido</button>
+    <button id="btnStop" class="danger" style="display:none">⏹ Parar</button>
+    <progress id="progress" value="0" max="100" style="display:none"></progress>
+    <p id="summary" style="font-size:13px;color:#555"></p>
+  </div>
+
+  <div class="card"><div id="log">Esperando...</div></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js";
+
+    // ── Proyecto del archivo (auth + firestore: aquí se ESCRIBE) ──
+    const archiveConfig = {
+      apiKey: "AIzaSyCj2fy9LSRBuPfdAEh-CUMk5T4surT0Vdw",
+      authDomain: "project-4938c1eb-c32b-4494-95c.firebaseapp.com",
+      projectId: "project-4938c1eb-c32b-4494-95c",
+      storageBucket: "project-4938c1eb-c32b-4494-95c.firebasestorage.app",
+      messagingSenderId: "1008559277868",
+      appId: "1:1008559277868:web:68ccf6b6e7e6ef25738e89"
+    };
+    const FIRESTORE_DB_ID = "ai-studio-d55aaa70-4a7c-4319-86af-28ede5db32a3";
+
+    // ── Proyecto del Escape Room (auth + functions: aquí vive brainQuery) ──
+    const brainConfig = {
+      apiKey: "AIzaSyAG0P2E4c4PiFqIyauCk-yRpgeVv_rtaYE",
+      authDomain: "estellaescape.firebaseapp.com",
+      projectId: "estellaescape",
+      storageBucket: "estellaescape.firebasestorage.app",
+      messagingSenderId: "971436139988",
+      appId: "1:971436139988:web:89be0e1a09208d0d5da241"
+    };
+
+    const archiveApp = initializeApp(archiveConfig, "archive");
+    const archiveAuth = getAuth(archiveApp);
+    const db = getFirestore(archiveApp, FIRESTORE_DB_ID);
+
+    const brainApp = initializeApp(brainConfig, "brain");
+    const brainAuth = getAuth(brainApp);
+    const brainFunctions = getFunctions(brainApp); // us-central1 por defecto
+    // brainQuery: requiere admin (mikeldiaz0). soloResultados=true → sin LLM, barato.
+    const brainQuery = httpsCallable(brainFunctions, "brainQuery");
+
+    let archiveUser = null, brainUser = null, stop = false;
+
+    const $ = (id) => document.getElementById(id);
+    const logEl = $("log"), progressEl = $("progress"), summaryEl = $("summary");
+    const btnRun = $("btnRun"), btnStop = $("btnStop"), btnLogout = $("btnLogout");
+
+    function addLog(msg, type = "info") {
+      const span = document.createElement("span");
+      span.className = type; span.textContent = msg + "\n";
+      logEl.appendChild(span); logEl.scrollTop = logEl.scrollHeight;
+    }
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    function refresh() {
+      $("statusArchive").textContent = "🗂️ Archivo: " + (archiveUser ? "✅ " + archiveUser.email : "no iniciado");
+      $("statusBrain").textContent  = "🧠 Brain: "  + (brainUser ? "✅ " + brainUser.email : "no iniciado");
+      btnRun.disabled = !(archiveUser && brainUser);
+      btnLogout.style.display = (archiveUser || brainUser) ? "inline-block" : "none";
+    }
+    onAuthStateChanged(archiveAuth, u => { archiveUser = u; refresh(); });
+    onAuthStateChanged(brainAuth,   u => { brainUser = u;   refresh(); });
+
+    $("btnLoginArchive").onclick = async () => {
+      try { await signInWithPopup(archiveAuth, new GoogleAuthProvider()); }
+      catch (e) { addLog("Error login Archivo: " + e.message, "err"); }
+    };
+    $("btnLoginBrain").onclick = async () => {
+      try { await signInWithPopup(brainAuth, new GoogleAuthProvider()); }
+      catch (e) { addLog("Error login Brain: " + e.message, "err"); }
+    };
+    btnLogout.onclick = () => { signOut(archiveAuth); signOut(brainAuth); };
+    btnStop.onclick = () => { stop = true; addLog("⏹ Parando tras la foto actual...", "warn"); };
+
+    function buildQuestion(p) {
+      const parts = [];
+      if (p.title) parts.push(String(p.title));
+      if (p.location) parts.push("en " + p.location);
+      if (p.year) parts.push("año " + p.year);
+      if (p.description) parts.push(String(p.description).slice(0, 300));
+      if (Array.isArray(p.tags) && p.tags.length) parts.push(p.tags.join(", "));
+      return parts.join(". ").replace(/\s+/g, " ").trim().slice(0, 600);
+    }
+
+    function toRelated(s) {
+      const r = { fuente: s.fuente, titulo: s.titulo, score: s.score };
+      if (s.fecha) r.fecha = s.fecha;
+      if (s.url) r.url = s.url;
+      if (s.resumen) r.resumen = String(s.resumen).slice(0, 400);
+      if (s.seccion) r.seccion = s.seccion;
+      return r;
+    }
+
+    btnRun.onclick = async () => {
+      if (!archiveUser || !brainUser) { addLog("Inicia las dos sesiones primero", "err"); return; }
+      stop = false;
+      const minScore = parseInt($("minScore").value) || 0;
+      const topN = parseInt($("topN").value) || 5;
+      const force = $("force").checked;
+
+      btnRun.disabled = true; btnStop.style.display = "inline-block";
+      addLog("📥 Cargando fotos...", "info");
+
+      let snap;
+      try { snap = await getDocs(collection(db, "photos")); }
+      catch (e) { addLog("Error leyendo fotos: " + e.message, "err"); btnRun.disabled = false; btnStop.style.display = "none"; return; }
+
+      const docs = snap.docs;
+      addLog("✅ " + docs.length + " fotos. minScore=" + minScore + " top=" + topN + (force ? " [FORCE]" : ""), "ok");
+      progressEl.style.display = "block"; progressEl.max = docs.length; progressEl.value = 0;
+
+      let processed = 0, enriched = 0, empty = 0, skipped = 0, errors = 0;
+
+      for (let i = 0; i < docs.length; i++) {
+        progressEl.value = i + 1;
+        if (stop) break;
+        const d = docs[i], p = d.data();
+
+        if (!force && p.relatedArticlesUpdatedAt) { skipped++; continue; }
+        const question = buildQuestion(p);
+        if (question.length < 3) { skipped++; continue; }
+
+        processed++;
+        const label = (p.title || d.id).slice(0, 50);
+        try {
+          const res = await brainQuery({ question, soloResultados: true, topK: 8, minScore });
+          const sources = (res.data?.sources || []).filter(s => s.score >= minScore);
+          const related = sources.slice(0, topN).map(toRelated);
+
+          await updateDoc(doc(db, "photos", d.id), {
+            relatedArticles: related,
+            relatedArticlesUpdatedAt: serverTimestamp(),
+          });
+
+          if (related.length) {
+            enriched++;
+            addLog("✅ " + label + " → " + related.map(r => r.fuente + ":" + r.score).join(", "), "ok");
+          } else {
+            empty++;
+            addLog("· " + label + " → sin coincidencias", "info");
+          }
+        } catch (e) {
+          errors++;
+          addLog("❌ " + label + ": " + (e.message || e), "err");
+        }
+        await sleep(350); // rate-limit HuggingFace
+      }
+
+      summaryEl.textContent = "Procesadas: " + processed + " | con prensa: " + enriched + " | sin coincidencias: " + empty + " | saltadas: " + skipped + " | errores: " + errors;
+      addLog("\n🎉 " + (stop ? "Parado" : "Completado") + ". " + summaryEl.textContent, "ok");
+      btnRun.disabled = false; btnStop.style.display = "none";
+    };
+  </script>
+</body>
+</html>

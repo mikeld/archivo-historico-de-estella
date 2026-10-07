@@ -1,0 +1,204 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+
+    function isSignedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function isAdmin() { 
+      return isSignedIn() && (
+        request.auth.token.email == 'mikeldiaz0@gmail.com' ||
+        request.auth.token.email == 'estellaescapecity@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'))
+      );
+    }
+    
+    function isEditor() {
+      return isSignedIn() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor')
+      );
+    }
+    
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'createdAt']) &&
+             data.email is string && data.email.size() <= 150 &&
+             data.createdAt is timestamp &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 2048)) &&
+             (!('isAdmin' in data) || (data.isAdmin is bool)) &&
+             (!('role' in data) || (data.role is string && (data.role == 'admin' || data.role == 'editor' || data.role == 'user'))) &&
+             (!('favorites' in data) || (data.favorites is list && data.favorites.size() <= 1000 && (data.favorites.size() == 0 || data.favorites[0] is string))) &&
+             (!('likedCuriosities' in data) || (data.likedCuriosities is list && data.likedCuriosities.size() <= 2000 && (data.likedCuriosities.size() == 0 || data.likedCuriosities[0] is string)));
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isEditor());
+      allow list: if isEditor();
+      
+      allow create: if isSignedIn() && 
+                    request.auth.uid == userId && 
+                    isValidId(userId) &&
+                    isValidUser(incoming()) &&
+                    incoming().email == request.auth.token.email &&
+                    incoming().createdAt == request.time &&
+                    (!('isAdmin' in incoming()) || incoming().isAdmin == false) &&
+                    (!('role' in incoming()) || incoming().role == 'user');
+
+      allow update: if isSignedIn() && 
+                    request.auth.uid == userId && 
+                    isValidUser(incoming()) &&
+                    incoming().email == existing().email &&
+                    incoming().createdAt == existing().createdAt &&
+                    (!('isAdmin' in incoming()) || incoming().isAdmin == existing().isAdmin || isAdmin()) &&
+                    (!('role' in incoming()) || incoming().role == existing().role || isAdmin());
+    }
+
+    function isValidPhoto(data) {
+      return data.keys().hasAll(['imageUrl', 'owner', 'uploadedBy', 'createdAt']) &&
+             data.imageUrl is string && data.imageUrl.size() <= 2048 &&
+             data.owner is string && data.owner.size() <= 200 &&
+             data.uploadedBy is string && 
+             data.createdAt is timestamp &&
+             (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
+             (!('photographer' in data) || (data.photographer is string && data.photographer.size() <= 200)) &&
+             (!('location' in data) || (data.location is string && data.location.size() <= 200)) &&
+             (!('collection' in data) || (data.collection is string && data.collection.size() <= 200)) &&
+             (!('referenceCode' in data) || (data.referenceCode is string && data.referenceCode.size() <= 200)) &&
+             (!('license' in data) || (data.license is string && data.license.size() <= 200)) &&
+             (!('physicalFormat' in data) || (data.physicalFormat is string && data.physicalFormat.size() <= 500)) &&
+             (!('thumbnailUrl' in data) || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 2048)) &&
+             (!('year' in data) || (data.year is number)) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 5000)) &&
+             (!('quality' in data) || (data.quality is string && data.quality.size() <= 50)) &&
+             (!('priority' in data) || (data.priority is string && data.priority.size() <= 50)) &&
+             (!('isRetouched' in data) || (data.isRetouched is bool)) &&
+             (!('source' in data) || (data.source is string && data.source.size() <= 100)) &&
+             (!('searchTerms' in data) || (data.searchTerms is list && data.searchTerms.size() <= 100 && (data.searchTerms.size() == 0 || data.searchTerms[0] is string))) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 20 && (data.tags.size() == 0 || data.tags[0] is string))) &&
+             (!('curiosities' in data) || (data.curiosities is list)) &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp));
+    }
+
+    match /photos/{photoId} {
+      allow read: if true; 
+
+      allow create: if isSignedIn() &&
+                    isValidId(photoId) &&
+                    isValidPhoto(incoming()) &&
+                    incoming().uploadedBy == request.auth.uid &&
+                    incoming().createdAt == request.time;
+
+      allow update: if (isSignedIn() && isValidPhoto(incoming()) && (
+                      isEditor() || 
+                      (
+                        existing().uploadedBy == request.auth.uid && 
+                        incoming().uploadedBy == existing().uploadedBy &&
+                        incoming().createdAt == existing().createdAt &&
+                        (!('updatedAt' in incoming()) || incoming().updatedAt == request.time) &&
+                        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'photographer', 'location', 'collection', 'referenceCode', 'license', 'physicalFormat', 'imageUrl', 'thumbnailUrl', 'owner', 'year', 'description', 'quality', 'priority', 'isRetouched', 'source', 'searchTerms', 'tags', 'curiosities', 'updatedAt'])
+                      )
+                    ));
+
+      allow delete: if isSignedIn() && (isAdmin() || existing().uploadedBy == request.auth.uid);
+    }
+
+    function isValidSuggestion(data) {
+      return data.keys().hasAll(['photoId', 'suggestedBy', 'type', 'status', 'createdAt']) &&
+             data.photoId is string && data.photoId.size() <= 128 &&
+             data.suggestedBy is string && data.suggestedBy == request.auth.uid &&
+             data.type is string && (data.type == 'claim_authorship' || data.type == 'edit_details' || data.type == 'add_curiosity' || data.type == 'add_anecdote') &&
+             data.status is string && (data.status == 'pending' || data.status == 'approved' || data.status == 'rejected') &&
+             data.createdAt is timestamp &&
+             (!('proposedChanges' in data) || data.proposedChanges is map);
+    }
+
+    match /suggestions/{suggestionId} {
+      allow read: if isSignedIn() && (isEditor() || existing().suggestedBy == request.auth.uid);
+      allow create: if isSignedIn() &&
+                    isValidId(suggestionId) &&
+                    isValidSuggestion(incoming()) &&
+                    incoming().status == 'pending' &&
+                    incoming().createdAt == request.time &&
+                    exists(/databases/$(database)/documents/photos/$(incoming().photoId));
+      allow update: if isEditor() &&
+                    isValidSuggestion(incoming()) &&
+                    incoming().photoId == existing().photoId &&
+                    incoming().suggestedBy == existing().suggestedBy &&
+                    incoming().type == existing().type &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isAdmin();
+    }
+
+    function isValidNews(data) {
+      return data.keys().hasAll(['title', 'date', 'year', 'content', 'source', 'createdAt']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 500 &&
+             data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}.*') &&
+             data.year is int && data.year >= 1800 && data.year <= 2100 &&
+             data.content is string && data.content.size() > 0 && data.content.size() <= 100000 &&
+             data.source is string && data.source == 'Diario de Navarra' &&
+             (!('protagonists' in data) || (data.protagonists is list && data.protagonists.size() <= 100)) &&
+             (!('url' in data) || (data.url is string && data.url.matches('^https?://.*') && data.url.size() <= 2048)) &&
+             (data.createdAt is timestamp || data.createdAt is int || data.createdAt is string);
+    }
+
+    match /news/{newsId} {
+      allow read: if true;
+      
+      allow create: if isSignedIn() && isValidId(newsId) && isValidNews(incoming());
+      
+      allow update: if isAdmin() && isValidNews(incoming());
+      
+      allow delete: if isAdmin();
+    }
+    function isValidCuriosity(data) {
+      return data.keys().hasAll(['photoId', 'text', 'addedBy', 'type', 'createdAt']) &&
+             data.photoId is string && data.photoId.size() <= 128 &&
+             data.text is string && data.text.size() <= 5000 &&
+             data.addedBy is string && data.addedBy.size() <= 128 &&
+             data.type is string && (data.type == 'curiosity' || data.type == 'anecdote' || data.type == 'historia' || data.type == 'cotilleo' || data.type == 'misterio') &&
+             data.createdAt is timestamp &&
+             (!('authorName' in data) || (data.authorName is string && data.authorName.size() <= 100)) &&
+             (!('likes' in data) || data.likes is number);
+    }
+
+    match /curiosities/{curiosityId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(curiosityId) && isValidCuriosity(incoming()) && incoming().addedBy == request.auth.uid;
+      allow update: if isSignedIn() && isValidCuriosity(incoming()) && (
+        isEditor() ||
+        (existing().addedBy == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['text', 'type'])) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['likes'])
+      );
+      allow delete: if isAdmin() || (isSignedIn() && existing().addedBy == request.auth.uid);
+    }
+
+    function isValidEfemeride(data) {
+      return data.keys().hasAll(['day', 'title', 'narrative']) &&
+             data.day is string && data.day.size() <= 10 &&
+             data.title is string && data.title.size() <= 400 &&
+             data.narrative is string && data.narrative.size() <= 15000 &&
+             (!('highlights' in data) || data.highlights is list) &&
+             (!('articleIds' in data) || data.articleIds is list);
+    }
+
+    match /efemerides/{dayId} {
+      allow read: if true;
+      allow create, update: if isValidId(dayId) && isValidEfemeride(incoming());
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Importar Fotos Históricas</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
+    h1 { color: #333; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    button { padding: 10px 20px; background: #4285f4; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; margin-right: 10px; }
+    button:hover { background: #3367d6; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    button.danger { background: #d32f2f; }
+    #status { font-weight: bold; margin-bottom: 8px; }
+    #log { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 6px; font-family: monospace; font-size: 13px; height: 300px; overflow-y: auto; white-space: pre-wrap; }
+    .ok { color: #4ec9b0; }
+    .err { color: #f48771; }
+    .info { color: #9cdcfe; }
+    .warn { color: #dcdcaa; }
+    label { font-weight: bold; display: block; margin-bottom: 6px; }
+    input[type=file] { display: block; margin-bottom: 12px; }
+    #preview { margin-top: 16px; }
+    .preview-item { border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 12px; background: #fafafa; }
+    .preview-item img { max-width: 120px; max-height: 90px; object-fit: cover; border-radius: 4px; float: left; margin-right: 12px; }
+    .preview-item .meta { font-size: 13px; color: #555; overflow: hidden; }
+    .preview-item .title { font-weight: bold; color: #222; margin-bottom: 4px; }
+    .clearfix::after { content: ''; display: table; clear: both; }
+    progress { width: 100%; height: 20px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>📸 Importar Fotos Históricas</h1>
+
+  <div class="card">
+    <div id="status">No iniciado sesión</div>
+    <button id="btnLogin">Entrar con Google</button>
+    <button id="btnLogout" style="display:none" class="danger">Cerrar sesión</button>
+  </div>
+
+  <div class="card">
+    <label>1. Selecciona el archivo cataloged-posts.json:</label>
+    <input type="file" id="jsonFile" accept=".json" />
+
+    <label>2. Selecciona las imágenes descargadas (carpeta images/):</label>
+    <input type="file" id="imageFiles" accept="image/*" multiple />
+
+    <button id="btnPreview" disabled>Vista previa</button>
+    <div id="preview"></div>
+  </div>
+
+  <div class="card">
+    <button id="btnImport" disabled>🚀 Importar a Firebase</button>
+    <button id="btnSkipExisting" style="margin-top:8px" disabled>⏭ Solo importar nuevas (saltar duplicados)</button>
+    <progress id="progress" value="0" max="100" style="display:none"></progress>
+    <p id="importSummary" style="font-size:13px;color:#555"></p>
+  </div>
+
+  <div class="card">
+    <div id="log">Esperando...</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCj2fy9LSRBuPfdAEh-CUMk5T4surT0Vdw",
+      authDomain: "project-4938c1eb-c32b-4494-95c.firebaseapp.com",
+      projectId: "project-4938c1eb-c32b-4494-95c",
+      storageBucket: "project-4938c1eb-c32b-4494-95c.firebasestorage.app",
+      messagingSenderId: "1008559277868",
+      appId: "1:1008559277868:web:68ccf6b6e7e6ef25738e89"
+    };
+    const FIRESTORE_DB_ID = "ai-studio-d55aaa70-4a7c-4319-86af-28ede5db32a3";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app, FIRESTORE_DB_ID);
+    const storage = getStorage(app);
+
+    let currentUser = null;
+    let catalogData = null;
+    let imageMap = {};
+    let pendingItems = [];
+
+    const logEl = document.getElementById("log");
+    const btnLogin = document.getElementById("btnLogin");
+    const btnLogout = document.getElementById("btnLogout");
+    const btnPreview = document.getElementById("btnPreview");
+    const btnImport = document.getElementById("btnImport");
+    const btnSkipExisting = document.getElementById("btnSkipExisting");
+    const statusEl = document.getElementById("status");
+    const progressEl = document.getElementById("progress");
+    const summaryEl = document.getElementById("importSummary");
+
+    function addLog(msg, type = "info") {
+      const span = document.createElement("span");
+      span.className = type;
+      span.textContent = msg + "\n";
+      logEl.appendChild(span);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    onAuthStateChanged(auth, user => {
+      currentUser = user;
+      if (user) {
+        statusEl.textContent = "✅ Sesión: " + user.email;
+        btnLogin.style.display = "none";
+        btnLogout.style.display = "inline-block";
+        btnPreview.disabled = false;
+      } else {
+        statusEl.textContent = "No iniciado sesión";
+        btnLogin.style.display = "inline-block";
+        btnLogout.style.display = "none";
+        btnPreview.disabled = true;
+        btnImport.disabled = true;
+        btnSkipExisting.disabled = true;
+      }
+    });
+
+    btnLogin.onclick = async () => {
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch (e) { addLog("Error login: " + e.message, "err"); }
+    };
+    btnLogout.onclick = () => signOut(auth);
+
+    document.getElementById("imageFiles").onchange = (e) => {
+      imageMap = {};
+      for (const f of e.target.files) imageMap[f.name] = f;
+      addLog("📁 " + Object.keys(imageMap).length + " imágenes cargadas", "info");
+    };
+
+    btnPreview.onclick = async () => {
+      const jsonFile = document.getElementById("jsonFile").files[0];
+      if (!jsonFile) { addLog("Selecciona el JSON primero", "warn"); return; }
+      try {
+        const text = await jsonFile.text();
+        catalogData = JSON.parse(text);
+        addLog("✅ JSON cargado: " + catalogData.length + " entradas", "ok");
+        buildPendingItems();
+        renderPreview();
+      } catch (e) {
+        addLog("Error leyendo JSON: " + e.message, "err");
+      }
+    };
+
+    function buildPendingItems() {
+      pendingItems = [];
+      for (const entry of catalogData) {
+        if (entry.processed) continue;
+
+        // v2: entry.images[] array
+        if (entry.images && Array.isArray(entry.images)) {
+          entry.images.forEach((img, idx) => {
+            if (!img.isHistorical || img.confidence < 0.4) return;
+            if (!img.localImage) return;
+            const filename = img.localImage.split(/[/\\]/).pop();
+            pendingItems.push({ entry, img, filename, imgIndex: idx });
+          });
+        } else {
+          // v1 fallback: single image per entry
+          if (!entry.isHistorical || (entry.confidence || 0) < 0.5) continue;
+          const localImage = entry.localImage || (entry.localImages && entry.localImages[0]);
+          if (!localImage) continue;
+          const filename = localImage.split(/[/\\]/).pop();
+          const img = {
+            title: entry.title, description: entry.description, year: entry.year,
+            yearRange: entry.yearRange, yearMax: entry.yearMax, location: entry.location,
+            tags: entry.tags || [], confidence: entry.confidence || 0,
+            isHistorical: entry.isHistorical, localImage
+          };
+          pendingItems.push({ entry, img, filename, imgIndex: 0 });
+        }
+      }
+      addLog("📋 " + pendingItems.length + " imágenes históricas listas para importar", "ok");
+    }
+
+    function renderPreview() {
+      const container = document.getElementById("preview");
+      container.innerHTML = "";
+      if (!pendingItems.length) {
+        container.innerHTML = "<p>No hay imágenes históricas en el JSON.</p>"; return;
+      }
+      btnImport.disabled = !currentUser;
+      btnSkipExisting.disabled = !currentUser;
+
+      pendingItems.slice(0, 10).forEach(({ entry, img, filename }) => {
+        const div = document.createElement("div");
+        div.className = "preview-item clearfix";
+        const file = imageMap[filename];
+        if (file) {
+          const imgEl = document.createElement("img");
+          imgEl.src = URL.createObjectURL(file);
+          div.appendChild(imgEl);
+        }
+        const facebookAuthor = entry.facebookAuthor || entry.author || "desconocido";
+        const photographer = entry.photographer || img.photographer || "";
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.innerHTML =
+          '<div class="title">' + (img.title || "Sin título") + '</div>' +
+          '<div>📅 ' + (img.year || "¿?") + ' | 📍 ' + (img.location || "Estella") + '</div>' +
+          '<div>👤 FB: <b>' + facebookAuthor + '</b>' + (photographer ? ' | 📷 Autor: <b>' + photographer + '</b>' : '') + '</div>' +
+          '<div>🔒 Confianza: ' + Math.round((img.confidence || 0) * 100) + '% | 🖼 ' + filename + '</div>';
+        div.appendChild(meta);
+        container.appendChild(div);
+      });
+
+      if (pendingItems.length > 10) {
+        const p = document.createElement("p");
+        p.textContent = "... y " + (pendingItems.length - 10) + " más";
+        container.appendChild(p);
+      }
+    }
+
+    async function importItems(skipDuplicates) {
+      if (!currentUser) { addLog("Inicia sesión primero", "err"); return; }
+      if (!pendingItems.length) { addLog("No hay items para importar", "warn"); return; }
+
+      btnImport.disabled = true;
+      btnSkipExisting.disabled = true;
+      progressEl.style.display = "block";
+      progressEl.value = 0;
+      progressEl.max = pendingItems.length;
+
+      let imported = 0, skipped = 0, errors = 0;
+
+      for (let i = 0; i < pendingItems.length; i++) {
+        const { entry, img, filename, imgIndex } = pendingItems[i];
+        progressEl.value = i + 1;
+
+        // Deterministic doc ID
+        const baseId = (entry.id || entry.postUrl || "unknown")
+          .replace(/[^a-zA-Z0-9]/g, "_").slice(0, 50);
+        const docId = "fb_" + baseId + "_" + imgIndex;
+
+        try {
+          if (skipDuplicates) {
+            const existing = await getDoc(doc(db, "photos", docId));
+            if (existing.exists()) {
+              addLog("⏭ Saltando (ya existe): " + (img.title || filename), "warn");
+              skipped++;
+              continue;
+            }
+          }
+
+          const file = imageMap[filename];
+          if (!file) {
+            addLog("⚠️ Imagen no encontrada: " + filename, "warn");
+            errors++;
+            continue;
+          }
+
+          const storagePath = "photos/facebook-import/" + docId + "/" + filename;
+          const storageRef = ref(storage, storagePath);
+          addLog("⬆️ Subiendo: " + filename + "...", "info");
+          await uploadBytes(storageRef, file);
+          const imageUrl = await getDownloadURL(storageRef);
+
+          const facebookAuthor = entry.facebookAuthor || entry.author || "desconocido";
+          const facebookAuthorUrl = entry.facebookAuthorUrl || entry.authorProfileUrl || "";
+          const photographer = entry.photographer || img.photographer || "";
+          const photographerSource = entry.photographerSource || "unknown";
+
+          const searchTerms = [...new Set([
+            ...(img.tags || []),
+            ...(img.searchTerms || []),
+            facebookAuthor.toLowerCase(),
+            photographer ? photographer.toLowerCase() : null,
+            img.location ? img.location.toLowerCase() : null,
+            img.year ? String(img.year) : null,
+            "estella", "lizarra", "navarra"
+          ].filter(Boolean))];
+
+          const photoDoc = {
+            title: img.title || "Foto histórica de Estella",
+            description: img.description || "",
+            imageUrl,
+            thumbnailUrl: imageUrl,
+            owner: facebookAuthor,
+            uploadedBy: currentUser.uid,
+            location: img.location || "Estella-Lizarra",
+            collection: "Facebook - Fotos Antiguas de Estella",
+            year: img.year || null,
+            source: "facebook",
+            tags: img.tags || [],
+            searchTerms,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            facebookPostUrl: entry.postUrl || entry.facebookPostUrl || null,
+            facebookAuthor,
+            facebookAuthorUrl: facebookAuthorUrl || null,
+            facebookDate: entry.facebookDate || entry.dateRaw || null,
+            aiYearRange: img.yearRange || null,
+            aiYearMax: img.yearMax || null,
+            aiConfidence: img.confidence || null,
+          };
+
+          // Add photographer fields only if known
+          if (photographer) {
+            photoDoc.photographer = photographer;
+            photoDoc.photographerSource = photographerSource;
+          }
+
+          // Remove null fields
+          Object.keys(photoDoc).forEach(k => { if (photoDoc[k] === null) delete photoDoc[k]; });
+
+          await setDoc(doc(db, "photos", docId), photoDoc);
+          addLog("✅ Importada: \"" + photoDoc.title + "\" (" + (img.year || "s/a") + ") — " + facebookAuthor, "ok");
+          imported++;
+
+        } catch (e) {
+          addLog("❌ Error en " + filename + ": " + e.message, "err");
+          errors++;
+        }
+      }
+
+      summaryEl.textContent = "✅ Importadas: " + imported + " | ⏭ Saltadas: " + skipped + " | ❌ Errores: " + errors;
+      addLog("\n🎉 Proceso completado: " + imported + " importadas, " + skipped + " saltadas, " + errors + " errores", "ok");
+      btnImport.disabled = false;
+      btnSkipExisting.disabled = false;
+    }
+
+    btnImport.onclick = () => importItems(false);
+    btnSkipExisting.onclick = () => importItems(true);
+  </script>
+</body>
+</html>

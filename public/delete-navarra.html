@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Eliminar Fotos de Navarra · Archivo</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }
+    h1 { color: #333; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    button { padding: 10px 20px; background: #4285f4; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; margin-right: 10px; }
+    button:hover { background: #3367d6; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    button.danger { background: #d32f2f; }
+    button.danger:hover { background: #b71c1c; }
+    #status { font-weight: bold; margin-bottom: 8px; }
+    #log { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 6px; font-family: monospace; font-size: 13px; height: 300px; overflow-y: auto; white-space: pre-wrap; }
+    .ok { color: #4ec9b0; }
+    .err { color: #f48771; }
+    .info { color: #9cdcfe; }
+    .warn { color: #dcdcaa; }
+    progress { width: 100%; height: 20px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>🏛️ Eliminar Fotos del Archivo de Navarra</h1>
+  <p style="color:#555;font-size:14px">
+    Esta herramienta elimina permanentemente de Firestore todos los registros de fotos cuyo origen sea el <b>Archivo de Navarra</b> (source = 'navarra-archive'). Las fotos de Facebook quedarán intactas.
+  </p>
+
+  <div class="card">
+    <div id="status">No iniciado sesión</div>
+    <button id="btnLogin">Entrar con Google</button>
+    <button id="btnLogout" style="display:none" class="danger">Cerrar sesión</button>
+  </div>
+
+  <div class="card">
+    <button id="btnScan" disabled>🔍 Analizar base de datos</button>
+    <button id="btnDelete" class="danger" disabled>🗑️ Eliminar fotos de Navarra</button>
+    <progress id="progress" value="0" max="100" style="display:none"></progress>
+    <p id="summary" style="font-size:13px;color:#555"></p>
+  </div>
+
+  <div class="card">
+    <div id="log">Esperando inicio de sesión...</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+    import { getFirestore, collection, query, where, getDocs, doc, writeBatch } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCj2fy9LSRBuPfdAEh-CUMk5T4surT0Vdw",
+      authDomain: "project-4938c1eb-c32b-4494-95c.firebaseapp.com",
+      projectId: "project-4938c1eb-c32b-4494-95c",
+      storageBucket: "project-4938c1eb-c32b-4494-95c.firebasestorage.app",
+      messagingSenderId: "1008559277868",
+      appId: "1:1008559277868:web:68ccf6b6e7e6ef25738e89"
+    };
+    const FIRESTORE_DB_ID = "ai-studio-d55aaa70-4a7c-4319-86af-28ede5db32a3";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app, FIRESTORE_DB_ID);
+
+    let currentUser = null;
+    let docsToDelete = [];
+
+    const logEl = document.getElementById("log");
+    const btnLogin = document.getElementById("btnLogin");
+    const btnLogout = document.getElementById("btnLogout");
+    const btnScan = document.getElementById("btnScan");
+    const btnDelete = document.getElementById("btnDelete");
+    const statusEl = document.getElementById("status");
+    const progressEl = document.getElementById("progress");
+    const summaryEl = document.getElementById("summary");
+
+    function addLog(msg, type = "info") {
+      const span = document.createElement("span");
+      span.className = type;
+      span.textContent = msg + "\n";
+      logEl.appendChild(span);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    onAuthStateChanged(auth, user => {
+      currentUser = user;
+      if (user) {
+        statusEl.textContent = "✅ Sesión: " + user.email;
+        btnLogin.style.display = "none";
+        btnLogout.style.display = "inline-block";
+        btnScan.disabled = false;
+        logEl.textContent = "Listo para escanear Firestore.\n";
+      } else {
+        statusEl.textContent = "No iniciado sesión";
+        btnLogin.style.display = "inline-block";
+        btnLogout.style.display = "none";
+        btnScan.disabled = true;
+        btnDelete.disabled = true;
+        logEl.textContent = "Inicia sesión con tu cuenta de administrador para continuar.\n";
+      }
+    });
+
+    btnLogin.onclick = async () => {
+      try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+      catch (e) { addLog("Error login: " + e.message, "err"); }
+    };
+    btnLogout.onclick = () => signOut(auth);
+
+    btnScan.onclick = async () => {
+      addLog("🔍 Buscando fotos del Archivo de Navarra en Firestore...", "info");
+      btnScan.disabled = true;
+      docsToDelete = [];
+
+      try {
+        const q = query(
+          collection(db, "photos"),
+          where("source", "==", "navarra-archive")
+        );
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((docSnap) => {
+          docsToDelete.push({ id: docSnap.id, title: docSnap.data().title });
+        });
+
+        addLog(`✅ Análisis completado. Se encontraron ${docsToDelete.length} fotos del Archivo de Navarra en la base de datos.`, "ok");
+        summaryEl.textContent = `Se encontraron ${docsToDelete.length} fotos listas para ser eliminadas.`;
+        
+        if (docsToDelete.length > 0) {
+          btnDelete.disabled = false;
+        }
+      } catch (e) {
+        addLog("❌ Error al escanear base de datos: " + e.message, "err");
+      }
+      btnScan.disabled = false;
+    };
+
+    btnDelete.onclick = async () => {
+      if (!currentUser) return;
+      if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente estas ${docsToDelete.length} fotos? Esta acción no se puede deshacer.`)) {
+        return;
+      }
+
+      btnScan.disabled = true;
+      btnDelete.disabled = true;
+      progressEl.style.display = "block";
+      progressEl.value = 0;
+      progressEl.max = docsToDelete.length;
+
+      let deleted = 0;
+      let errors = 0;
+
+      try {
+        let batch = writeBatch(db);
+        let batchCount = 0;
+
+        for (let i = 0; i < docsToDelete.length; i++) {
+          const docId = docsToDelete[i].id;
+          const docTitle = docsToDelete[i].title;
+          
+          batch.delete(doc(db, "photos", docId));
+          batchCount++;
+          deleted++;
+          progressEl.value = deleted;
+
+          if (batchCount === 500 || i === docsToDelete.length - 1) {
+            addLog(`⏳ Enviando lote de eliminación (${batchCount} documentos)...`, "info");
+            await batch.commit();
+            addLog(`✅ Lote completado exitosamente.`, "ok");
+            batch = writeBatch(db);
+            batchCount = 0;
+          }
+
+          // Pequeño retardo
+          await new Promise(r => setTimeout(r, 10));
+        }
+
+        summaryEl.textContent = `Eliminación completada: ${deleted} fotos borradas con éxito.`;
+        addLog(`\n🏁 Proceso finalizado. Total eliminadas: ${deleted} | Errores: ${errors}`, "ok");
+        docsToDelete = [];
+      } catch (e) {
+        addLog("❌ Error crítico durante la eliminación: " + e.message, "err");
+      }
+
+      btnScan.disabled = false;
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Material pesado y descargado (se queda solo en local)
+facebook-import/
+public/archive-photos/

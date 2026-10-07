@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile, defining admin role",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "isAdmin": { "type": "boolean" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "Photo": {
+      "title": "Photo",
+      "description": "Historical photo metadata",
+      "type": "object",
+      "properties": {
+        "imageUrl": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "owner": { "type": "string" },
+        "year": { "type": "number" },
+        "description": { "type": "string" },
+        "quality": { "type": "string" },
+        "priority": { "type": "string" },
+        "isRetouched": { "type": "boolean" },
+        "source": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "createdAt": { "type": "integer" },
+        "updatedAt": { "type": "integer" },
+        "searchTerms": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["imageUrl", "owner", "uploadedBy", "createdAt"]
+    },
+    "Suggestion": {
+      "title": "Suggestion",
+      "description": "User suggestions for photos (edits, claims)",
+      "type": "object",
+      "properties": {
+        "photoId": { "type": "string" },
+        "suggestedBy": { "type": "string" },
+        "type": { "enum": ["claim_authorship", "edit_details"] },
+        "status": { "enum": ["pending", "approved", "rejected"] },
+        "proposedChanges": { "type": "object" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["photoId", "suggestedBy", "type", "status", "createdAt"]
+    },
+    "News": {
+      "title": "News",
+      "description": "Archived news",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "year": { "type": "integer" },
+        "content": { "type": "string" },
+        "source": { "type": "string" },
+        "protagonists": { "type": "array", "items": { "type": "string" } },
+        "url": { "type": "string" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["title", "date", "year", "content", "source", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "photos/{photoId}": {
+      "schema": { "$ref": "#/entities/Photo" },
+      "description": "Historical photos"
+    },
+    "suggestions/{suggestionId}": {
+      "schema": { "$ref": "#/entities/Suggestion" },
+      "description": "Suggestions for photo edits or authorship claims"
+    },
+    "news/{newsId}": {
+      "schema": { "$ref": "#/entities/News" },
+      "description": "Archive for news articles"
+    }
+  }
+}
