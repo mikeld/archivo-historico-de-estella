@@ -18,12 +18,13 @@ import {
   UploadCloud,
   Sparkles,
 } from "lucide-react";
-import { Photo } from "../types";
+import { Photo, Role } from "../types";
 import imageCompression from 'browser-image-compression';
 import { ARCHIVO_IA_URL } from "../services/cronistaService";
 
 interface UploadProps {
   user: User | null;
+  userRole: Role;
 }
 
 interface PhotoFormData {
@@ -45,7 +46,7 @@ interface PhotoFormData {
   tags: string;
 }
 
-export function Upload({ user }: UploadProps) {
+export function Upload({ user, userRole }: UploadProps) {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -259,7 +260,13 @@ export function Upload({ user }: UploadProps) {
       console.log("Calling setDoc on db:", db);
 
       // Add a timeout to prevent setDoc from hanging forever if DB is unreachable
-      const setDocPromise = setDoc(doc(db, "photos", photoId), newPhoto);
+      // Los editores publican directamente; el resto queda pendiente de revisión (panel de admin)
+      const isEditor =
+        userRole === "admin" ||
+        userRole === "editor" ||
+        user.email === "mikeldiaz0@gmail.com" ||
+        user.email === "estellaescapecity@gmail.com";
+      const setDocPromise = setDoc(doc(db, isEditor ? "photos" : "photos_pending", photoId), newPhoto);
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(
           () =>
@@ -275,6 +282,9 @@ export function Upload({ user }: UploadProps) {
       await Promise.race([setDocPromise, timeoutPromise]);
 
       console.log("setDoc finished");
+      if (!isEditor) {
+        alert("¡Gracias! Tu fotografía queda pendiente de revisión y se publicará cuando la aprobemos.");
+      }
       navigate("/");
     } catch (err) {
       if (

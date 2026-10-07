@@ -95,11 +95,10 @@ service cloud.firestore {
     match /photos/{photoId} {
       allow read: if true; 
 
-      allow create: if isSignedIn() &&
+      // Publicar: solo editores (al aprobar una foto pendiente conserva autor y fecha originales)
+      allow create: if isEditor() &&
                     isValidId(photoId) &&
-                    isValidPhoto(incoming()) &&
-                    incoming().uploadedBy == request.auth.uid &&
-                    incoming().createdAt == request.time;
+                    isValidPhoto(incoming());
 
       allow update: if (isSignedIn() && isValidPhoto(incoming()) && (
                       isEditor() || 
@@ -115,13 +114,24 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (isAdmin() || existing().uploadedBy == request.auth.uid);
     }
 
+    // Fotos subidas por usuarios: esperan aquí hasta que un editor las aprueba (no son públicas)
+    match /photos_pending/{photoId} {
+      allow read: if isSignedIn() && (isEditor() || existing().uploadedBy == request.auth.uid);
+      allow create: if isSignedIn() &&
+                    isValidId(photoId) &&
+                    isValidPhoto(incoming()) &&
+                    incoming().uploadedBy == request.auth.uid &&
+                    incoming().createdAt == request.time;
+      allow delete: if isEditor();
+    }
+
     function isValidSuggestion(data) {
       return data.keys().hasAll(['photoId', 'suggestedBy', 'type', 'status', 'createdAt']) &&
              data.photoId is string && data.photoId.size() <= 128 &&
-             data.suggestedBy is string && data.suggestedBy == request.auth.uid &&
+             data.suggestedBy is string &&
              data.type is string && (data.type == 'claim_authorship' || data.type == 'edit_details' || data.type == 'add_curiosity' || data.type == 'add_anecdote') &&
              data.status is string && (data.status == 'pending' || data.status == 'approved' || data.status == 'rejected') &&
-             data.createdAt is timestamp &&
+             (data.createdAt is timestamp || data.createdAt is int) &&
              (!('proposedChanges' in data) || data.proposedChanges is map);
     }
 
@@ -130,8 +140,8 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
                     isValidId(suggestionId) &&
                     isValidSuggestion(incoming()) &&
+                    incoming().suggestedBy == request.auth.uid &&
                     incoming().status == 'pending' &&
-                    incoming().createdAt == request.time &&
                     exists(/databases/$(database)/documents/photos/$(incoming().photoId));
       allow update: if isEditor() &&
                     isValidSuggestion(incoming()) &&
@@ -171,14 +181,15 @@ service cloud.firestore {
              data.text is string && data.text.size() <= 5000 &&
              data.addedBy is string && data.addedBy.size() <= 128 &&
              data.type is string && (data.type == 'curiosity' || data.type == 'anecdote' || data.type == 'historia' || data.type == 'cotilleo' || data.type == 'misterio') &&
-             data.createdAt is timestamp &&
+             (data.createdAt is timestamp || data.createdAt is int) &&
              (!('authorName' in data) || (data.authorName is string && data.authorName.size() <= 100)) &&
              (!('likes' in data) || data.likes is number);
     }
 
     match /curiosities/{curiosityId} {
       allow read: if true;
-      allow create: if isSignedIn() && isValidId(curiosityId) && isValidCuriosity(incoming()) && incoming().addedBy == request.auth.uid;
+      // Las aportaciones de usuarios llegan como sugerencias; la curiosidad la crea el editor al aprobarla
+      allow create: if isEditor() && isValidId(curiosityId) && isValidCuriosity(incoming());
       allow update: if isSignedIn() && isValidCuriosity(incoming()) && (
         isEditor() ||
         (existing().addedBy == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['text', 'type'])) ||

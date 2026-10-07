@@ -311,7 +311,7 @@ export function App() {
             <Route path="/cronista" element={<CronistaChat user={user} />} />
             <Route path="/curiosities" element={<Curiosities user={user} />} />
             <Route path="/about" element={<About />} />
-            <Route path="/upload" element={<Upload user={user} />} />
+            <Route path="/upload" element={<Upload user={user} userRole={userRole} />} />
             <Route path="/profile" element={<Profile user={user} userRole={userRole} />} />
             <Route
               path="/admin"

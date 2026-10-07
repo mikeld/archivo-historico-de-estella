@@ -9,6 +9,7 @@ import {
   getDoc,
   serverTimestamp,
   setDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { Suggestion, Photo, Role, User as AppUser, Curiosity } from "../types";
@@ -33,9 +34,11 @@ export function AdminDashboard({
   user: User | null;
   userRole: Role;
 }) {
-  const [activeTab, setActiveTab] = useState<"suggestions" | "users">(
+  const [activeTab, setActiveTab] = useState<"suggestions" | "pending" | "users">(
     "suggestions",
   );
+  // Fotos subidas por usuarios, pendientes de aprobar (colección photos_pending)
+  const [pendingPhotos, setPendingPhotos] = useState<Photo[]>([]);
   const [suggestions, setSuggestions] = useState<
     (Suggestion & { photo?: Photo })[]
   >([]);
@@ -80,6 +83,9 @@ export function AdminDashboard({
         }
         loaded.sort((a, b) => b.createdAt - a.createdAt);
         setSuggestions(loaded);
+
+        const pSnap = await getDocs(collection(db, "photos_pending"));
+        setPendingPhotos(pSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Photo));
 
         if (isAdmin) {
           const uSnap = await getDocs(query(collection(db, "users")));
@@ -155,6 +161,24 @@ export function AdminDashboard({
     }
   };
 
+  // Aprobar = publicar en photos (con su autor y fecha originales) y quitar de pendientes
+  const handlePendingPhoto = async (photo: Photo, action: "approved" | "rejected") => {
+    try {
+      setActionLoading(photo.id);
+      if (action === "approved") {
+        const { id, ...data } = photo;
+        await setDoc(doc(db, "photos", id), data);
+      }
+      await deleteDoc(doc(db, "photos_pending", photo.id));
+      setPendingPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    } catch (err) {
+      console.error(err);
+      alert("Error procesando la foto");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleChangeRole = async (userId: string, newRole: Role) => {
     try {
       await updateDoc(doc(db, "users", userId), {
@@ -207,6 +231,14 @@ export function AdminDashboard({
         >
           <div className="flex items-center justify-center gap-2">
             <ImageIcon className="w-4 h-4" /> Sugerencias ({suggestions.length})
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab("pending")}
+          className={`flex-1 min-w-[120px] text-sm font-medium py-2.5 px-6 rounded-full transition-colors ${activeTab === "pending" ? "bg-white shadow text-[#3A3A28]" : "text-[#5A5A40] hover:text-[#3A3A28]"}`}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <Clock className="w-4 h-4" /> Fotos pendientes ({pendingPhotos.length})
           </div>
         </button>
         {isAdmin && (
@@ -380,6 +412,61 @@ export function AdminDashboard({
                         <Check className="w-4 h-4 text-green-400" />
                       )}{" "}
                       Aprobar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+
+      {activeTab === "pending" &&
+        (pendingPhotos.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-sm">
+            <Check className="w-12 h-12 text-green-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-1">Todo al día</h3>
+            <p className="text-gray-500">No hay fotos pendientes de revisión.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {pendingPhotos.map((photo) => (
+              <div
+                key={photo.id}
+                className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col md:flex-row"
+              >
+                <div className="w-full md:w-64 h-64 md:h-auto bg-gray-100 shrink-0">
+                  <img src={photo.thumbnailUrl || photo.imageUrl} alt="" className="w-full h-full object-cover" />
+                </div>
+                <div className="p-6 flex-1 flex flex-col">
+                  <h3 className="font-serif text-lg text-gray-900 mb-1">{photo.title || "Sin título"}</h3>
+                  <p className="text-sm text-gray-500 mb-3">
+                    {[photo.year, photo.location, photo.owner].filter(Boolean).join(" · ")}
+                  </p>
+                  {photo.description && (
+                    <p className="text-sm text-gray-700 mb-4 line-clamp-4">{photo.description}</p>
+                  )}
+                  <p className="text-xs text-gray-400 mb-6">
+                    Subida por: <span className="font-medium text-gray-700">{photo.uploadedBy}</span>
+                  </p>
+                  <div className="flex items-center justify-end gap-3 mt-auto">
+                    <button
+                      onClick={() => handlePendingPhoto(photo, "rejected")}
+                      disabled={actionLoading === photo.id}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <X className="w-4 h-4 text-red-500" /> Rechazar
+                    </button>
+                    <button
+                      onClick={() => handlePendingPhoto(photo, "approved")}
+                      disabled={actionLoading === photo.id}
+                      className="px-4 py-2 bg-gray-900 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-black flex items-center gap-2"
+                    >
+                      {actionLoading === photo.id ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4 text-green-400" />
+                      )}{" "}
+                      Publicar
                     </button>
                   </div>
                 </div>
