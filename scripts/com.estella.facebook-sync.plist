@@ -6,13 +6,13 @@
     <string>com.estella.facebook-sync</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/node</string>
-        <string>/Users/mikel/Developer/archivo-histórico-de-estella/node_modules/.bin/tsx</string>
-        <string>/Users/mikel/Developer/archivo-histórico-de-estella/scripts/daily-sync.ts</string>
+        <string>/opt/homebrew/bin/node</string>
+        <string>/Users/mikel/Developer/ProyectosPersonales/archivo-histórico-de-estella/node_modules/.bin/tsx</string>
+        <string>/Users/mikel/Developer/ProyectosPersonales/archivo-histórico-de-estella/scripts/daily-sync.ts</string>
         <string>--auto</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/mikel/Developer/archivo-histórico-de-estella</string>
+    <string>/Users/mikel/Developer/ProyectosPersonales/archivo-histórico-de-estella</string>
     <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>
@@ -21,8 +21,8 @@
         <integer>0</integer>
     </dict>
     <key>StandardOutPath</key>
-    <string>/Users/mikel/Developer/archivo-histórico-de-estella/sync.log</string>
+    <string>/Users/mikel/Developer/ProyectosPersonales/archivo-histórico-de-estella/sync.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/mikel/Developer/archivo-histórico-de-estella/sync-error.log</string>
+    <string>/Users/mikel/Developer/ProyectosPersonales/archivo-histórico-de-estella/sync-error.log</string>
 </dict>
 </plist>
