@@ -1,0 +1,62 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hostinger
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build and upload to Hostinger
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build app
+        run: npm run build
+
+      - name: Show build info
+        run: |
+          echo "Branch: $GITHUB_REF_NAME"
+          cat dist/build-info.json
+
+      - name: Upload to Hostinger (con reintentos)
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: SamKirkland/FTP-Deploy-Action@v4.3.5
+          attempt_limit: 3
+          attempt_delay: 15000
+          with: |
+            server: ${{ secrets.HOSTINGER_HOST }}
+            username: ${{ secrets.HOSTINGER_USERNAME }}
+            password: ${{ secrets.HOSTINGER_PASSWORD }}
+            port: ${{ secrets.HOSTINGER_PORT || 21 }}
+            protocol: ftps
+            local-dir: ./dist/
+            server-dir: ./
+            dangerous-clean-slate: false
+            timeout: 60000
+            log-level: minimal
