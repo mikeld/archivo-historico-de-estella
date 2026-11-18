@@ -186,6 +186,8 @@ function delay(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 async function analyzeImage(
   imagePath: string,
   postText: string,
+  facebookComments: string[],
+  facebookAuthor: string,
   ai: GoogleGenAI,
 ): Promise<ImageCatalog> {
   const imageData = fs.readFileSync(imagePath);
@@ -193,10 +195,19 @@ async function analyzeImage(
   const mimeType = (ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg") as "image/jpeg" | "image/png" | "image/webp";
   const filename = path.basename(imagePath);
 
-  const prompt = `Eres un archivero especializado en historia de Estella-Lizarra (Navarra, España).
-Tu misión es seleccionar fotografías con VALOR HISTÓRICO REAL para un archivo público.
+  const commentsSnippet = (facebookComments || []).slice(0, 20).join("\n---\n");
 
-Texto del post de Facebook: """${postText?.slice(0, 800) || "(sin texto)"}"""
+  const prompt = `Eres un archivero e historiador experto especializado en Estella-Lizarra y Navarra (España).
+Tu misión es seleccionar y documentar con MÁXIMO RIGOR fotografías con VALOR HISTÓRICO REAL para un archivo público.
+
+Texto del post original de Facebook:
+"""${postText?.slice(0, 1000) || "(sin texto)"}"""
+Publicado por: ${facebookAuthor || "desconocido"}
+
+Comentarios y testimonios orales de los vecinos en el grupo:
+"""
+${commentsSnippet || "(sin comentarios adicionales)"}
+"""
 
 ━━ ACEPTA (isHistorical: true) ━━
 ✅ Fotos en blanco y negro → casi siempre históricas, alta prioridad
@@ -211,7 +222,6 @@ Texto del post de Facebook: """${postText?.slice(0, 800) || "(sin texto)"}"""
 ❌ Fotos actuales o recientes (mercado de esta semana, eventos actuales)
 ❌ Fuegos artificiales, castillos de fuegos → no aportan valor histórico aunque sean antiguos
 ❌ Fotos nocturnas de fuegos/pirotecnia → descartar siempre
-❌ Imágenes repetitivas del mismo tema ya común (la 8ª foto de fuegos = no aporta nada)
 ❌ Fotos de otras ciudades o lugares no identificables como Estella
 ❌ Memes, carteles publicitarios, logos, imágenes de redes sociales
 ❌ Fotos de muy mala calidad, completamente borrosas o ilegibles
@@ -219,36 +229,45 @@ Texto del post de Facebook: """${postText?.slice(0, 800) || "(sin texto)"}"""
 ❌ Reportajes actuales aunque hablen de historia (foto es moderna)
 ❌ Cualquier imagen posterior a ${MAX_YEAR}
 
-━━ CAMPO "contentType" ━━
-Indica qué tipo de contenido es:
-- "photo_bw": fotografía en blanco y negro
-- "photo_color_old": fotografía en color pero claramente antigua
-- "photo_color_recent": fotografía en color reciente
-- "document": documento, periódico, mapa, grabado
-- "postcard": postal
-- "fireworks": fuegos artificiales (rechazar siempre)
-- "other": otro
+━━ PUNTOS DE INTERÉS DEL MAPA (landmarkId) ━━
+Asigna estrictamente uno de estos IDs solo si la foto muestra claramente ese lugar:
+- "fueros": Plaza de los Fueros / Quiosco central / soportales
+- "san_pedro": Iglesia de San Pedro de la Rúa / escalinata
+- "trenico": Antigua Estación de ferrocarril / El Trenico / vías / andenes
+- "llanos": Paseo de Los Llanos / Convento de San Benito
+- "rio_ega": Río Ega / presa / orillas / crecidas
+- "puy": Basílica de Ntra. Sra. del Puy
+- "calle_mayor": Calle Mayor de Estella o Calle de la Rúa
+- "reyes_navarra": Palacio de los Reyes de Navarra / Plaza San Martín
+- "santiago": Plaza de Santiago
+- "toros": Plaza de Toros
+- "san_miguel": Iglesia de San Miguel
+- "puente_carcel": Puente de la Cárcel (Puente Picudo)
+- "sepulcro": Iglesia del Santo Sepulcro
+- "inmaculada": Paseo de la Inmaculada
+- null: Si es un retrato familiar, boda, interior, o calle/paraje no identificable con total seguridad. (NO ADIVINES).
 
 Responde SOLO con JSON válido (sin markdown, sin texto extra):
 {
   "isHistorical": true/false,
   "contentType": "photo_bw|photo_color_old|photo_color_recent|document|postcard|fireworks|other",
   "skipReason": "motivo breve si isHistorical=false, sino null",
-  "title": "título descriptivo concreto (máx 10 palabras, no genérico)",
-  "description": "descripción detallada: qué se ve, personas, edificios, actividades, época visible (máx 300 palabras)",
+  "title": "título conciso y formal en español (máx 10 palabras)",
+  "description": "descripción detallada: qué se ve, contexto, edificios y testimonios (máx 250 palabras)",
   "year": número exacto o null,
   "yearRange": "XXXX-XXXX" o null,
   "yearMax": número (año máximo estimado),
-  "location": "zona concreta de Estella visible, o vacío si no se identifica",
+  "decade": "1920s|1930s|1940s|1950s|1960s|1970s|1980s|1990s" o null,
+  "location": "zona concreta de Estella, o vacío si no se identifica",
+  "landmarkId": "fueros|san_pedro|trenico|llanos|rio_ega|puy|calle_mayor|reyes_navarra|santiago|toros|san_miguel|puente_carcel|sepulcro|inmaculada" o null,
   "tags": ["tag1", "tag2"],
-  "keywords": ["palabra1", "palabra2", ...],
-  "people": "descripción breve de las personas visibles: número, indumentaria, género, edad aparente",
-  "landmarks": ["nombre del edificio o monumento reconocible", ...],
+  "keywords": ["palabra1", "palabra2"],
+  "people": ["Nombre 1", "Nombre 2"],
+  "landmarks": ["nombre del edificio reconocible"],
   "activities": "qué están haciendo las personas o qué evento muestra la foto",
-  "era": "época visual estimada en lenguaje natural, ej: 'principios del siglo XX', 'años 50-60'",
+  "era": "época visual estimada (ej: 'años 50')",
   "confidence": número de 0.0 a 1.0,
-  "photographer": "nombre del fotógrafo si aparece en la imagen o firma visible, sino null",
-  "photographerHint": "pista sobre el autor si no es seguro, sino null"
+  "photographer": "nombre del fotógrafo o colección si se menciona en post o comentarios, sino null"
 }
 
 ━━ SOBRE "keywords" ━━
@@ -415,7 +434,7 @@ async function main() {
       let retries = 0;
       while (retries < 3) {
         try {
-          const result = await analyzeImage(imagePath, post.postText, ai);
+          const result = await analyzeImage(imagePath, post.postText, post.facebookComments || [], facebookAuthor, ai);
 
           // Filtros de rechazo
           if (!result.isHistorical) {

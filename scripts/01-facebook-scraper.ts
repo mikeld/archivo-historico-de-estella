@@ -55,18 +55,32 @@ function bigImageUrl(src: string): string {
   return src.replace(/\/[sp]\d+x\d+\//, "/").replace(/_[stqb]\.(jpg|png|webp)/, "_n.$1");
 }
 
-/** Abre un popup de foto y extrae toda la información rápidamente via DOM directo */
+/** Abre un popup de foto y extrae toda la información enriquecida (post completo + hilo de comentarios profundo) */
 async function scrapePhotoDetail(page: any, photoUrl: string): Promise<{
   postText: string; dateRaw: string; dateUnix?: number;
   facebookAuthor: string; facebookAuthorUrl: string;
   facebookComments: string[]; imageUrl: string; postUrl: string;
+  commentImages?: string[];
 }> {
-  // Intentar expandir texto si hay botón "Ver más"
+  // 1. Expandir texto del post si hay botón "Ver más"
   try {
     const seeMore = page.locator('[role="button"]:has-text("Ver más"), [role="button"]:has-text("See more")').first();
     if (await seeMore.isVisible({ timeout: 500 }).catch(() => false)) {
       await seeMore.click().catch(() => {});
       await page.waitForTimeout(200);
+    }
+  } catch {}
+
+  // 2. Expandir comentarios anteriores / ver más comentarios (hasta 4 veces) para conseguir el debate vecinal
+  try {
+    for (let i = 0; i < 4; i++) {
+      const moreCommentsBtn = page.locator('[role="button"]:has-text("Ver más comentarios"), [role="button"]:has-text("Ver comentarios anteriores"), [role="button"]:has-text("View more comments"), [role="button"]:has-text("comentarios anteriores")').first();
+      if (await moreCommentsBtn.isVisible({ timeout: 400 }).catch(() => false)) {
+        await moreCommentsBtn.click().catch(() => {});
+        await page.waitForTimeout(400);
+      } else {
+        break;
+      }
     }
   } catch {}
 
@@ -109,13 +123,32 @@ async function scrapePhotoDetail(page: any, photoUrl: string): Promise<{
       facebookAuthorUrl = href.startsWith("http") ? href : (href ? "https://www.facebook.com" + href : "");
     }
 
+    // Extraer TODOS los comentarios con autor si está disponible
     const facebookComments: string[] = [];
-    for (const c of Array.from(document.querySelectorAll('[aria-label*="comentario"], [data-commentid]')).slice(0, 3)) {
-      const t = c.textContent?.trim() || "";
-      if (t.length > 3) facebookComments.push(t);
+    const commentNodes = Array.from(document.querySelectorAll('[aria-label*="comentario"], [data-commentid]'));
+    for (const c of commentNodes) {
+      const authorNode = c.querySelector('span[dir="auto"] strong, a strong');
+      const author = authorNode ? authorNode.textContent?.trim() + ": " : "";
+      const t = (c.textContent || "").trim();
+      if (t.length > 3 && !t.includes("Me gusta") && !t.includes("Responder")) {
+        // Limpiar botones repetidos de la UI de FB
+        const cleanT = t.replace(/\b(Me gusta|Responder|Compartir|\d+[hdsm]|Hace \d+.*?)\b/g, "").trim();
+        if (cleanT.length > 3) {
+          facebookComments.push(author ? author + cleanT : cleanT);
+        }
+      }
     }
 
-    // Buscar la imagen más grande (ignorar iconos, avatares, etc.)
+    // Extraer fotos adjuntas dentro de los comentarios
+    const commentImages: string[] = [];
+    for (const c of commentNodes) {
+      const img = c.querySelector('img[src*="fbcdn"]') as HTMLImageElement;
+      if (img && img.src && !img.src.includes("emoji") && !img.src.includes("avatar")) {
+        commentImages.push(img.src);
+      }
+    }
+
+    // Buscar la imagen principal más grande
     let bestSrc = "";
     let bestSize = 0;
     for (const img of Array.from(document.querySelectorAll('img[src*="fbcdn"]')) as HTMLImageElement[]) {
@@ -128,7 +161,7 @@ async function scrapePhotoDetail(page: any, photoUrl: string): Promise<{
       }
     }
 
-    return { postText, dateRaw, dateUnix, facebookAuthor, facebookAuthorUrl, facebookComments, imageUrl: bestSrc };
+    return { postText, dateRaw, dateUnix, facebookAuthor, facebookAuthorUrl, facebookComments, imageUrl: bestSrc, commentImages };
   }).catch(() => null);
 
   if (!detail) {
@@ -136,7 +169,8 @@ async function scrapePhotoDetail(page: any, photoUrl: string): Promise<{
   }
 
   const finalImageUrl = detail.imageUrl ? bigImageUrl(detail.imageUrl) : "";
-  return { ...detail, imageUrl: finalImageUrl, postUrl: photoUrl };
+  const finalCommentImages = (detail.commentImages || []).map((src: string) => bigImageUrl(src));
+  return { ...detail, imageUrl: finalImageUrl, postUrl: photoUrl, commentImages: finalCommentImages };
 }
 
 async function main() {

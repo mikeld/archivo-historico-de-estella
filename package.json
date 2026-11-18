@@ -10,6 +10,8 @@
     "lint": "tsc --noEmit && eslint src",
     "build:archive": "node scripts/build-static-archive.mjs && node scripts/enrich-articles.mjs",
     "import-facebook": "npx tsx scripts/03-import-firebase-client.ts",
+    "sync:daily": "npx tsx scripts/daily-sync.ts",
+    "sync:r2": "node scripts/sync-r2-webp.mjs",
     "sync-facebook": "npx tsx scripts/01-facebook-scraper.ts && npx tsx scripts/02-ai-catalog.ts && npx tsx scripts/03-import-firebase-client.ts"
   },
   "dependencies": {
