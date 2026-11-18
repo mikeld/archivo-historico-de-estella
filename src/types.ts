@@ -97,6 +97,7 @@ export interface Photo {
   relatedArticlesUpdatedAt?: any;     // Marca de cuándo se enriqueció (idempotencia)
   facebookPostUrl?: string;           // Enlace al post original (import de Facebook)
   facebookAuthor?: string;
+  aiAnalysis?: string;                // Descripción visual técnica de IA (secundaria)
 }
 
 export type SuggestionType =
@@ -133,4 +134,10 @@ export interface News {
   url?: string;
   protagonists?: string[];
   createdAt: any;
+}
+
+declare global {
+  const __APP_BUILD_ID__: string;
+  const __APP_BUILD_TIME__: string;
+  const __APP_GIT_SHA__: string;
 }

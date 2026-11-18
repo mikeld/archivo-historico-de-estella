@@ -1,0 +1,32 @@
+{
+  "name": "Archivo Histórico de Estella-Lizarra",
+  "short_name": "Archivo Estella",
+  "description": "Archivo fotográfico, memoria gráfica y hemeroteca histórica de Estella-Lizarra",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5f5f0",
+  "theme_color": "#5A5A40",
+  "lang": "es",
+  "categories": ["education", "photo", "books"],
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

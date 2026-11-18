@@ -41,8 +41,83 @@ export interface Efemeride {
   isAiGenerated: boolean;
 }
 
+// Términos de sucesos o incidencias menores que deben excluirse o penalizarse
+const SUCESOS_TERMS = [
+  "desalojo",
+  "ocupado",
+  "okupas",
+  "okupa",
+  "detenido",
+  "detenida",
+  "detenidos",
+  "robo",
+  "ladron",
+  "ladrones",
+  "droga",
+  "drogas",
+  "alcoholemia",
+  "accidente",
+  "herido",
+  "heridos",
+  "juzgado de guardia",
+  "investiga la policia",
+  "guardia civil investiga",
+];
+
+// Términos de valor histórico, cultural, festivo o patrimonial
+const VALUABLE_HISTORICAL_TERMS = [
+  "cultura",
+  "patrimonio",
+  "historia",
+  "historico",
+  "historica",
+  "fiesta",
+  "fiestas",
+  "feria",
+  "ferias",
+  "deporte",
+  "campeonato",
+  "musica",
+  "concierto",
+  "exposicion",
+  "inauguracion",
+  "premio",
+  "homenaje",
+  "puente",
+  "san pedro",
+  "el puy",
+  "virgen del puy",
+  "san andres",
+  "gigantes",
+  "danza",
+  "tradicion",
+  "teatro",
+  "libro",
+  "reyes",
+  "rey",
+  "fuero",
+  "trenico",
+  "camino de santiago",
+];
+
+export function scoreArticleForEfemerides(art: ArchiveArticle): number {
+  const text = `${art.titulo || ""} ${art.resumen || ""}`.toLowerCase();
+  for (const s of SUCESOS_TERMS) {
+    if (text.includes(s)) return -100;
+  }
+  let score = 0;
+  for (const v of VALUABLE_HISTORICAL_TERMS) {
+    if (text.includes(v)) score += 5;
+  }
+  if (art.resumen && art.resumen.length > 80) score += 3;
+  if (art.fuente?.toLowerCase().includes("callemayor") || art.fuente?.toLowerCase().includes("radio estella")) {
+    score += 2;
+  }
+  return score;
+}
+
 /**
- * Busca artículos en la hemeroteca para un día y mes específicos
+ * Busca artículos en la hemeroteca para un día y mes específicos, priorizando los de interés histórico
  */
 export function findArticlesForDay(
   articles: ArchiveArticle[],
@@ -79,6 +154,10 @@ export function findArticlesForDay(
     }
   }
 
+  // Ordenar priorizando crónicas históricas/culturales y relegando sucesos
+  exactMatches.sort((a, b) => scoreArticleForEfemerides(b) - scoreArticleForEfemerides(a));
+  nearbyMatches.sort((a, b) => scoreArticleForEfemerides(b) - scoreArticleForEfemerides(a));
+
   return { exactMatches, nearbyMatches };
 }
 
@@ -93,7 +172,11 @@ function createLocalFallbackEfemeride(
   exactArticles: ArchiveArticle[],
   photos: Photo[]
 ): Efemeride {
-  const highlights: EfemerideHighlight[] = exactArticles.slice(0, 5).map((a) => ({
+  // Filtrar sucesos policiales para el respaldo
+  const filtered = exactArticles.filter((a) => scoreArticleForEfemerides(a) >= 0);
+  const candidates = filtered.length > 0 ? filtered : exactArticles;
+
+  const highlights: EfemerideHighlight[] = candidates.slice(0, 5).map((a) => ({
     year: a.year || (a.fecha ? a.fecha.slice(0, 4) : "Archivo"),
     headline: a.titulo,
     detail: a.resumen || `Crónica documentada en ${a.fuente}.`,
@@ -103,8 +186,8 @@ function createLocalFallbackEfemeride(
   }));
 
   const narrative =
-    exactArticles.length > 0
-      ? `En esta fecha señalada (${dateLabel}), el Archivo Histórico de Estella-Lizarra conserva el testimonio vivo de ${exactArticles.length} crónicas documentadas en Radio Estella, Calle Mayor y la prensa navarra, reflejando el pulso social, cultural y deportivo de nuestra ciudad.`
+    candidates.length > 0
+      ? `En esta fecha señalada (${dateLabel}), el Archivo Histórico de Estella-Lizarra conserva el testimonio vivo de ${candidates.length} crónicas documentadas en Radio Estella, Calle Mayor y la prensa navarra, reflejando el pulso social, cultural y deportivo de nuestra ciudad.`
       : `El ${dateLabel} es una jornada viva en la memoria colectiva de Estella-Lizarra, encrucijada del Camino de Santiago y ciudad del Ega con siglos de patrimonio, comercio e historias humanas.`;
 
   return {
@@ -114,14 +197,14 @@ function createLocalFallbackEfemeride(
     monthNumber,
     dateLabel,
     title:
-      exactArticles.length > 0
-        ? `Tal día como hoy en Estella: ${exactArticles[0].titulo.slice(0, 80)}`
+      candidates.length > 0
+        ? `Tal día como hoy en Estella: ${candidates[0].titulo.slice(0, 80)}`
         : `Tal día como hoy en Estella-Lizarra (${dateLabel})`,
     narrative,
     highlights,
-    articleIds: exactArticles.map((a) => a.id),
+    articleIds: candidates.map((a) => a.id),
     photoIds: photos.slice(0, 3).map((p) => p.id),
-    sourceCount: exactArticles.length,
+    sourceCount: candidates.length,
     createdAt: Date.now(),
     isAiGenerated: false,
   };

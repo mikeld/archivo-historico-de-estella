@@ -10,15 +10,21 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, loginWithGoogle, logout } from "./lib/firebase";
 import { Home } from "./pages/Home";
-import { Upload } from "./pages/Upload";
-import { AdminDashboard } from "./pages/AdminDashboard";
-import { NewsArchive } from "./pages/NewsArchive";
-import { Profile } from "./pages/Profile";
-import { Curiosities } from "./pages/Curiosities";
-import { About } from "./pages/About";
-import { CronistaChat } from "./pages/CronistaChat";
-import { Efemerides } from "./pages/Efemerides";
-import { NotFound } from "./pages/NotFound";
+import { InstallPrompt } from "./components/InstallPrompt";
+import { BuildUpdateNotice, CurrentBuildBadge } from "./components/BuildUpdateNotice";
+
+// Code splitting: carga diferida para reducir el paquete inicial de la Home
+const HistoricalMap = React.lazy(() => import("./pages/HistoricalMap").then((m) => ({ default: m.HistoricalMap })));
+const BeforeAfter = React.lazy(() => import("./pages/BeforeAfter").then((m) => ({ default: m.BeforeAfter })));
+const Efemerides = React.lazy(() => import("./pages/Efemerides").then((m) => ({ default: m.Efemerides })));
+const NewsArchive = React.lazy(() => import("./pages/NewsArchive").then((m) => ({ default: m.NewsArchive })));
+const CronistaChat = React.lazy(() => import("./pages/CronistaChat").then((m) => ({ default: m.CronistaChat })));
+const Curiosities = React.lazy(() => import("./pages/Curiosities").then((m) => ({ default: m.Curiosities })));
+const About = React.lazy(() => import("./pages/About").then((m) => ({ default: m.About })));
+const Upload = React.lazy(() => import("./pages/Upload").then((m) => ({ default: m.Upload })));
+const Profile = React.lazy(() => import("./pages/Profile").then((m) => ({ default: m.Profile })));
+const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard").then((m) => ({ default: m.AdminDashboard })));
+const NotFound = React.lazy(() => import("./pages/NotFound").then((m) => ({ default: m.NotFound })));
 import {
   Search,
   ImagePlus,
@@ -34,6 +40,8 @@ import {
   Info,
   Sparkles,
   History,
+  MapPin,
+  ArrowLeftRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "./lib/utils";
@@ -56,7 +64,9 @@ export function Navigation({
 
   const navLinks = [
     { to: "/", label: "Explorar", icon: Search, color: "hover:text-[#5A5A40]" },
-    { to: "/efemerides", label: "Efemérides", icon: History, color: "hover:text-amber-800" },
+    { to: "/mapa", label: "Mapa", icon: MapPin, color: "hover:text-amber-800" },
+    { to: "/antes-despues", label: "Antes y Después", icon: ArrowLeftRight, color: "hover:text-amber-800" },
+    { to: "/efemerides", label: "Efemérides", icon: History, color: "hover:text-purple-800" },
     { to: "/news", label: "Hemeroteca", icon: Newspaper, color: "hover:text-[#5A5A40]" },
     { to: "/cronista", label: "Cronista IA", icon: Sparkles, color: "hover:text-amber-700" },
     { to: "/curiosities", label: "Curiosidades", icon: MessageCircleQuestion, color: "hover:text-purple-600" },
@@ -304,21 +314,34 @@ export function App() {
       <div className="min-h-screen bg-[#f5f5f0] flex flex-col font-sans">
         <Navigation user={user} onLogout={logout} userRole={userRole} />
         <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-          <Routes>
-            <Route path="/" element={<Home user={user} userRole={userRole} />} />
-            <Route path="/efemerides" element={<Efemerides user={user} />} />
-            <Route path="/news" element={<NewsArchive user={user} />} />
-            <Route path="/cronista" element={<CronistaChat user={user} />} />
-            <Route path="/curiosities" element={<Curiosities user={user} />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/upload" element={<Upload user={user} userRole={userRole} />} />
-            <Route path="/profile" element={<Profile user={user} userRole={userRole} />} />
-            <Route
-              path="/admin"
-              element={<AdminDashboard user={user} userRole={userRole} />}
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <React.Suspense
+            fallback={
+              <div className="min-h-[50vh] w-full flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#5A5A40] border-t-transparent" />
+                  <span className="text-xs text-gray-500 font-medium tracking-wide">Cargando archivo...</span>
+                </div>
+              </div>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<Home user={user} userRole={userRole} />} />
+              <Route path="/mapa" element={<HistoricalMap />} />
+              <Route path="/antes-despues" element={<BeforeAfter />} />
+              <Route path="/efemerides" element={<Efemerides user={user} />} />
+              <Route path="/news" element={<NewsArchive user={user} />} />
+              <Route path="/cronista" element={<CronistaChat user={user} />} />
+              <Route path="/curiosities" element={<Curiosities user={user} />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/upload" element={<Upload user={user} userRole={userRole} />} />
+              <Route path="/profile" element={<Profile user={user} userRole={userRole} />} />
+              <Route
+                path="/admin"
+                element={<AdminDashboard user={user} userRole={userRole} />}
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </React.Suspense>
         </main>
 
         {/* Floating "Preguntar al Cronista" AI button */}
@@ -330,6 +353,12 @@ export function App() {
           <Sparkles className="w-5 h-5 text-amber-300 group-hover:rotate-12 transition-transform" />
           <span className="text-xs sm:text-sm font-semibold tracking-wide">El Cronista IA</span>
         </Link>
+
+        {/* PWA Mobile Install Prompt */}
+        <InstallPrompt />
+
+        {/* Notificación sutil de nueva compilación / versión web */}
+        <BuildUpdateNotice />
 
         <footer className="bg-white border-t border-[#e8e8e6] pt-12 pb-8 mt-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -384,8 +413,9 @@ export function App() {
               </div>
             </div>
             
-            <div className="border-t border-[#e8e8e6] pt-8 text-center text-xs text-gray-400">
+            <div className="border-t border-[#e8e8e6] pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
               <p>&copy; {new Date().getFullYear()} Archivo Histórico de Estella-Lizarra. Colaboran los ciudadanos de la ciudad.</p>
+              <CurrentBuildBadge />
             </div>
           </div>
         </footer>

@@ -19,7 +19,7 @@ import { PhotoDetailModal } from "../components/PhotoDetailModal";
 import { FeaturedContent } from "../components/FeaturedContent";
 import { EfemeridesCard } from "../components/EfemeridesCard";
 import { Link } from "react-router-dom";
-import { Newspaper, History } from "lucide-react";
+import { Newspaper, History, MapPin, ArrowLeftRight } from "lucide-react";
 import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { getArchivePhotos, getArchivePhotoById } from "../lib/dataService";
@@ -447,22 +447,40 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
           </div>
         )}
 
-        {/* Discovery Links: El Cronista AI, Efemérides & Hemeroteca */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 pt-2">
+        {/* Discovery Links: El Cronista AI, Mapa, Antes y Después, Efemérides & Hemeroteca */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6 pt-2">
           <Link
-            to="/cronista"
-            className="flex items-center gap-3.5 p-3.5 bg-gradient-to-r from-amber-50 to-amber-100/50 hover:from-amber-100/80 hover:to-amber-200/50 border border-amber-200/60 rounded-2xl transition-all group"
+            to="/mapa"
+            className="flex items-center gap-3.5 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100/80 hover:to-orange-100/70 border border-amber-200/60 rounded-2xl transition-all group"
           >
             <div className="w-10 h-10 rounded-xl bg-[#5A5A40] text-amber-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Sparkles className="w-5 h-5" />
+              <MapPin className="w-5 h-5" />
             </div>
             <div>
               <div className="text-xs font-bold text-[#3A3A28] flex items-center gap-1.5">
-                El Cronista de Estella IA
-                <span className="text-[10px] bg-amber-200/60 text-amber-900 px-1.5 py-0.2 rounded font-semibold">Nuevo</span>
+                Mapa Histórico
+                <span className="text-[10px] bg-amber-200/60 text-amber-900 px-1.5 py-0.2 rounded font-semibold">449 fotos</span>
               </div>
               <p className="text-[11px] text-[#5A5A40] font-serif line-clamp-1 mt-0.5">
-                Pregunta al historiador inteligente con acceso al archivo
+                Explora rincones y calles de Estella sobre el plano
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            to="/antes-despues"
+            className="flex items-center gap-3.5 p-3.5 bg-gradient-to-r from-teal-50 to-emerald-50 hover:from-teal-100/80 hover:to-emerald-100/70 border border-teal-200/60 rounded-2xl transition-all group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-teal-800 text-teal-200 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <ArrowLeftRight className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                Antes y Después
+                <span className="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded font-semibold">Viaje</span>
+              </div>
+              <p className="text-[11px] text-gray-600 font-serif line-clamp-1 mt-0.5">
+                Desliza para ver la evolución del siglo XX
               </p>
             </div>
           </Link>
@@ -480,25 +498,25 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
                 <span className="text-[10px] bg-purple-100 text-purple-800 px-1.5 py-0.2 rounded font-semibold">Efemérides</span>
               </div>
               <p className="text-[11px] text-gray-600 font-serif line-clamp-1 mt-0.5">
-                Qué ocurrió en Estella tal día como hoy a través de los años
+                Qué ocurrió en Estella en esta fecha
               </p>
             </div>
           </Link>
 
           <Link
-            to="/news"
-            className="flex items-center gap-3.5 p-3.5 bg-gradient-to-r from-emerald-50 to-blue-50 hover:from-emerald-100/70 hover:to-blue-100/70 border border-emerald-200/60 rounded-2xl transition-all group"
+            to="/cronista"
+            className="flex items-center gap-3.5 p-3.5 bg-gradient-to-r from-amber-50 to-amber-100/50 hover:from-amber-100/80 hover:to-amber-200/50 border border-amber-200/60 rounded-2xl transition-all group"
           >
-            <div className="w-10 h-10 rounded-xl bg-emerald-800 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Newspaper className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-[#5A5A40] text-amber-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
-                Hemeroteca Histórica
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-semibold">1.725 artículos</span>
+              <div className="text-xs font-bold text-[#3A3A28] flex items-center gap-1.5">
+                El Cronista IA
+                <span className="text-[10px] bg-amber-200/60 text-amber-900 px-1.5 py-0.2 rounded font-semibold">Preguntar</span>
               </div>
-              <p className="text-[11px] text-gray-600 font-serif line-clamp-1 mt-0.5">
-                Prensa de Calle Mayor, Radio Estella y Diario de Noticias
+              <p className="text-[11px] text-[#5A5A40] font-serif line-clamp-1 mt-0.5">
+                Historiador inteligente conectado al archivo
               </p>
             </div>
           </Link>
@@ -577,7 +595,10 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
                   src={photo.thumbnailUrl || photo.imageUrl}
                   alt={photo.title || photo.description || "Fotografía de Estella"}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
+                  loading={idx < 4 ? "eager" : "lazy"}
+                  decoding="async"
+                  // @ts-ignore fetchPriority is standard in modern browsers
+                  fetchPriority={idx < 4 ? "high" : "auto"}
                 />
                 {/* Overlay on hover */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300 pointer-events-none" />

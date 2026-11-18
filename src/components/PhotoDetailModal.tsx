@@ -66,6 +66,7 @@ export function PhotoDetailModal({
   const [curiosities, setCuriosities] = useState<Curiosity[]>([]);
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [showAiAnalysis, setShowAiAnalysis] = useState(false);
 
   const isAdmin = userRole === "admin" || user?.email === "mikeldiaz0@gmail.com" || user?.email === "estellaescapecity@gmail.com";
   const isFavorite = isFavoriteProp ?? isFavoriteLocal;
@@ -105,6 +106,7 @@ export function PhotoDetailModal({
     setActiveTab("info");
     setSuccess(null);
     setError(null);
+    setShowAiAnalysis(false);
   }, [photo.id]);
 
   // Keyboard navigation
@@ -422,8 +424,54 @@ export function PhotoDetailModal({
                 <div className="space-y-5">
                   {photo.description && (
                     <div>
-                      <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Descripción</h3>
-                      <p className="text-gray-800 text-sm leading-relaxed">{photo.description}</p>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                          {photo.aiAnalysis ? "Relato / Testimonio" : "Descripción"}
+                        </h3>
+                        {photo.facebookAuthor && (
+                          <span className="text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200/60 px-2 py-0.5 rounded-full">
+                            Por {photo.facebookAuthor}
+                          </span>
+                        )}
+                      </div>
+                      <div className="bg-[#fcfbf7] border border-[#e8e6df] rounded-xl p-3.5 shadow-sm">
+                        <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-line italic">
+                          "{photo.description}"
+                        </p>
+                        {photo.facebookPostUrl && (
+                          <div className="mt-2.5 pt-2 border-t border-amber-100 flex items-center justify-between text-[11px] text-gray-500">
+                            <span>Testimonio recuperado del grupo de Facebook</span>
+                            <a
+                              href={photo.facebookPostUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-amber-800 hover:text-amber-900 font-medium hover:underline inline-flex items-center gap-1"
+                            >
+                              Ver publicación original ↗
+                            </a>
+                          </div>
+                        )}
+                      </div>
+
+                      {photo.aiAnalysis && (
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => setShowAiAnalysis(!showAiAnalysis)}
+                            className="text-[11px] text-gray-500 hover:text-gray-800 flex items-center gap-1.5 transition-colors"
+                          >
+                            <Wand2 className="w-3.5 h-3.5 text-gray-400" />
+                            <span>{showAiAnalysis ? "Ocultar análisis visual técnico" : "Ver análisis visual técnico de archivo"}</span>
+                            <span className="text-[10px] bg-gray-100 px-1.5 py-0.2 rounded text-gray-500">IA</span>
+                          </button>
+                          {showAiAnalysis && (
+                            <div className="mt-2 bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-600 leading-relaxed">
+                              <p className="font-semibold text-gray-700 mb-1">Análisis visual técnico (IA):</p>
+                              <p>{photo.aiAnalysis}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 

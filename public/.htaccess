@@ -9,3 +9,82 @@
 
 # Fallback si mod_rewrite no se aplica en Hostinger:
 ErrorDocument 404 /index.html
+
+# ----------------------------------------------------------------------
+# 1. Compresión Gzip / Deflate (Reduce JSONs de 4.6MB a ~850KB)
+# ----------------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE application/json
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE text/javascript
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE text/html
+  AddOutputFilterByType DEFLATE text/plain
+  AddOutputFilterByType DEFLATE text/xml
+  AddOutputFilterByType DEFLATE image/svg+xml
+  AddOutputFilterByType DEFLATE application/xml
+  AddOutputFilterByType DEFLATE application/xhtml+xml
+</IfModule>
+
+# ----------------------------------------------------------------------
+# 2. Control de Caché HTTP y Rendimiento
+# ----------------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+
+  # Imágenes estáticas históricas (inmutables, 1 año)
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+
+  # Fuentes web (1 año)
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+
+  # Bundles compilados con hash único (1 año)
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/css "access plus 1 year"
+
+  # Catálogo JSON (1 hora con revalidación)
+  ExpiresByType application/json "access plus 1 hour"
+
+  # HTML principal: revalidar siempre para capturar despliegues al instante
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Assets con hash único inmutables
+  <FilesMatch "\.(js|css)$">
+    Header set Cache-Control "max-age=31536000, immutable"
+  </FilesMatch>
+
+  # Fotografías históricas inmutables
+  <FilesMatch "\.(jpg|jpeg|png|webp|ico)$">
+    Header set Cache-Control "max-age=31536000, public, immutable"
+  </FilesMatch>
+
+  # Metadatos de versión y compilación: NUNCA en caché para detectar cambios al instante
+  <FilesMatch "(build-info\.json|version\.txt)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # Catálogos de datos JSON (revalidar si cambian)
+  <FilesMatch "\.json$">
+    Header set Cache-Control "public, max-age=3600, must-revalidate"
+  </FilesMatch>
+
+  # HTML principal: siempre fresco
+  <FilesMatch "\.(html|htm)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+
+  # Seguridad básica
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
