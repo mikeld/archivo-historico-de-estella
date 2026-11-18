@@ -131,8 +131,14 @@ export function HistoricalMap() {
     const map = new Map<string, Photo[]>();
     ESTELLA_LANDMARKS.forEach((lm) => {
       const list = photos.filter((p) => {
-        const text = `${p.location || ""} ${p.title || ""} ${p.description || ""} ${p.aiAnalysis || ""}`.toLowerCase();
-        return lm.terms.some((t) => text.includes(t));
+        // 1. Asignación directa y estricta si tiene landmarkId validado
+        if (p.landmarkId) {
+          return p.landmarkId === lm.id;
+        }
+        // 2. Fallback estricto solo si el campo location coincide exactamente
+        const loc = (p.location || "").toLowerCase().trim();
+        if (!loc || loc === "estella-lizarra" || loc === "estella") return false;
+        return lm.terms.some((t) => loc === t || loc.startsWith(t + ",") || loc.includes(t));
       });
       map.set(lm.id, list);
     });

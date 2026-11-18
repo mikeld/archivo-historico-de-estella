@@ -98,6 +98,12 @@ export interface Photo {
   facebookPostUrl?: string;           // Enlace al post original (import de Facebook)
   facebookAuthor?: string;
   aiAnalysis?: string;                // Descripción visual técnica de IA (secundaria)
+  landmarkId?: string;                // ID del monumento/lugar estricto en el mapa histórico
+  town?: string;                      // Localidad (Estella-Lizarra, Olite, Tafalla, etc.)
+  decade?: string;                    // Década formateada ("1960s")
+  people?: string[];                  // Personas citadas o identificadas
+  coordinates?: [number, number];     // Coordenadas geográficas [lat, lng]
+  verifiedLocation?: boolean;         // Indicador de ubicación verificada sin duda
 }
 
 export type SuggestionType =
