@@ -24,6 +24,7 @@ const EXTRA_PATHS = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/s
 process.env.PATH = `${EXTRA_PATHS}:${process.env.PATH || ""}`;
 
 const isAuto = process.argv.includes("--auto");
+const townArg = process.argv.find(a => a.startsWith("--town="))?.split("=")[1] || "estella-lizarra";
 
 function log(msg: string) {
   const ts = new Date().toISOString().replace("T", " ").slice(0, 19);
@@ -32,13 +33,13 @@ function log(msg: string) {
 
 async function run() {
   log("══════════════════════════════════════════════════════════");
-  log(" 🔄 INICIO DE SINCRONIZACIÓN DIARIA DEL ARCHIVO HISTÓRICO");
+  log(` 🔄 INICIO DE SINCRONIZACIÓN DIARIA: ${townArg.toUpperCase()}`);
   log("══════════════════════════════════════════════════════════");
 
   // 1. Scraping incremental de Facebook
   log("Paso 1/4: Comprobando fotos nuevas en el grupo de Facebook...");
   try {
-    const scraperCmd = `npx tsx scripts/01-facebook-scraper.ts --mode=new ${isAuto ? "--skip-grid" : ""}`;
+    const scraperCmd = `npx tsx scripts/01-facebook-scraper.ts --town=${townArg} --mode=new ${isAuto ? "--skip-grid" : ""}`;
     execSync(scraperCmd, { cwd: ROOT, stdio: "inherit" });
   } catch (err: any) {
     log(`⚠️ Advertencia en scraper: ${err.message}`);
@@ -47,7 +48,7 @@ async function run() {
   // 2. Catalogación y análisis de testimonios con Gemini
   log("\nPaso 2/4: Catalogando con Gemini Vision y analizando testimonios...");
   try {
-    execSync("npx tsx scripts/02-ai-catalog.ts", { cwd: ROOT, stdio: "inherit" });
+    execSync(`npx tsx scripts/02-ai-catalog.ts --town=${townArg}`, { cwd: ROOT, stdio: "inherit" });
   } catch (err: any) {
     log(`⚠️ Advertencia en catalogación: ${err.message}`);
   }
@@ -55,7 +56,7 @@ async function run() {
   // 3. Conversión a WebP y sincronización con Cloudflare R2
   log("\nPaso 3/4: Optimizando a WebP y subiendo a Cloudflare R2...");
   try {
-    execSync("node scripts/sync-r2-webp.mjs", { cwd: ROOT, stdio: "inherit" });
+    execSync(`node scripts/sync-r2-webp.mjs --town=${townArg}`, { cwd: ROOT, stdio: "inherit" });
   } catch (err: any) {
     log(`⚠️ Advertencia en subida R2: ${err.message}`);
   }

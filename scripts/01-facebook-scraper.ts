@@ -19,12 +19,16 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const GROUP_PHOTOS_URL = "https://www.facebook.com/groups/393354891012356/media/photos";
-const OUTPUT_DIR       = path.join(__dirname, "../facebook-import");
+const townArg = process.argv.find(a => a.startsWith("--town="))?.split("=")[1] || "estella-lizarra";
+const townSources = JSON.parse(fs.readFileSync(path.join(__dirname, "town-sources.json"), "utf8"));
+const townConfig = townSources[townArg] || townSources["estella-lizarra"];
+
+const GROUP_PHOTOS_URL = townConfig.facebookPhotosUrl || "https://www.facebook.com/groups/393354891012356/media/photos";
+const OUTPUT_DIR       = path.join(__dirname, `../facebook-import/${townArg}`);
 const IMAGES_DIR       = path.join(OUTPUT_DIR, "images");
 const RAW_FILE         = path.join(OUTPUT_DIR, "raw-posts.json");
 const STATE_FILE       = path.join(OUTPUT_DIR, "scraper-state.json");
-const PROFILE_DIR      = path.join(OUTPUT_DIR, ".browser-profile");
+const PROFILE_DIR      = path.join(__dirname, "../facebook-import/.browser-profile");
 
 const MAX_PHOTOS        = 6000;
 const SCROLL_PAUSE_MS   = 2000;

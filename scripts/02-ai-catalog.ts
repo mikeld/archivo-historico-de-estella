@@ -28,7 +28,13 @@ if (fs.existsSync(envPath)) {
 }
 
 // ─── Configuración ────────────────────────────────────────────────────────────
-const IMPORT_DIR      = path.join(__dirname, "../facebook-import");
+const townArg = process.argv.find(a => a.startsWith("--town="))?.split("=")[1] || "estella-lizarra";
+const townSources = JSON.parse(fs.readFileSync(path.join(__dirname, "town-sources.json"), "utf8"));
+const currentTown = townSources[townArg] || townSources["estella-lizarra"];
+
+const IMPORT_DIR      = fs.existsSync(path.join(__dirname, `../facebook-import/${townArg}`))
+  ? path.join(__dirname, `../facebook-import/${townArg}`)
+  : path.join(__dirname, "../facebook-import");
 const RAW_FILE        = path.join(IMPORT_DIR, "raw-posts.json");
 const CATALOGED_FILE  = path.join(IMPORT_DIR, "cataloged-posts.json");
 const SKIPPED_FILE    = path.join(IMPORT_DIR, "skipped-posts.json");

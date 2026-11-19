@@ -12,6 +12,12 @@ import {
   Tag,
   ChevronDown,
   ChevronUp,
+  Users,
+  Camera,
+  MapPin,
+  Building2,
+  Check,
+  Filter,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "motion/react";
@@ -19,11 +25,12 @@ import { PhotoDetailModal } from "../components/PhotoDetailModal";
 import { FeaturedContent } from "../components/FeaturedContent";
 import { EfemeridesCard } from "../components/EfemeridesCard";
 import { Link } from "react-router-dom";
-import { Newspaper, History, MapPin, ArrowLeftRight } from "lucide-react";
+import { Newspaper, History, ArrowLeftRight } from "lucide-react";
 import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { getArchivePhotos, getArchivePhotoById } from "../lib/dataService";
 import { ARCHIVO_IA_URL } from "../services/cronistaService";
+import { NAVARRA_TOWNS, NAVARRA_MERINDADES } from "../data/navarra-towns";
 
 export function formatTag(tag: string): string {
   if (!tag) return "";
@@ -56,9 +63,13 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTown, setSelectedTown] = useState<string | null>(null);
   const [decadeFilter, setDecadeFilter] = useState<number | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showAllTags, setShowAllTags] = useState(false);
+  const [filterWithPeople, setFilterWithPeople] = useState(false);
+  const [filterWithPhotographer, setFilterWithPhotographer] = useState(false);
+  const [filterWithLandmark, setFilterWithLandmark] = useState(false);
 
   const [isAiMode, setIsAiMode] = useState(false);
   const [isAiSearching, setIsAiSearching] = useState(false);
@@ -244,7 +255,7 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
       if (searchTerm && !isAiMode) {
         const queryTerms = normalizeText(searchTerm).split(/\s+/).filter(Boolean);
         const searchableText = normalizeText(
-          `${photo.title || ""} ${photo.description || ""} ${photo.owner || ""} ${photo.photographer || ""} ${photo.location || ""} ${photo.collection || ""} ${photo.year || ""} ${(photo.tags || []).join(" ")} ${(photo.relatedArticles || []).map((a) => a.titulo).join(" ")}`
+          `${photo.title || ""} ${photo.description || ""} ${photo.town || ""} ${(photo.people || []).join(" ")} ${photo.owner || ""} ${photo.photographer || ""} ${photo.location || ""} ${photo.collection || ""} ${photo.archiveReference || ""} ${photo.year || ""} ${(photo.tags || []).join(" ")} ${(photo.relatedArticles || []).map((a) => a.titulo).join(" ")}`
         );
         const allTermsMatch = queryTerms.every((term) => {
           if (term === "50s" || term === "50") return searchableText.includes("1950") || searchableText.includes("anos 50");
@@ -257,6 +268,21 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
         });
         if (!allTermsMatch) return false;
       }
+      if (selectedTown) {
+        const pTown = (photo.townSlug || photo.town || "Estella-Lizarra").toLowerCase();
+        if (!pTown.includes(selectedTown.toLowerCase()) && !(selectedTown === "estella-lizarra" && !photo.town)) {
+          return false;
+        }
+      }
+      if (filterWithPeople && (!photo.people || photo.people.length === 0)) {
+        return false;
+      }
+      if (filterWithPhotographer && (!photo.photographer || photo.photographer.trim() === "")) {
+        return false;
+      }
+      if (filterWithLandmark && !photo.landmarkId) {
+        return false;
+      }
       if (decadeFilter !== null) {
         const decShort = String(decadeFilter).slice(2);
         const tagMatch = (photo.tags || []).some((t) => t === `anos_${decShort}` || t === `ano_${decShort}`);
@@ -268,7 +294,12 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
       }
       return true;
     });
-  }, [photos, searchTerm, decadeFilter, activeTag, isAiMode, aiResultIds]);
+  }, [photos, searchTerm, selectedTown, filterWithPeople, filterWithPhotographer, filterWithLandmark, decadeFilter, activeTag, isAiMode, aiResultIds]);
+
+  // Contadores dinámicos para los filtros inteligentes
+  const countWithPeople = useMemo(() => photos.filter((p) => p.people && p.people.length > 0).length, [photos]);
+  const countWithLandmark = useMemo(() => photos.filter((p) => !!p.landmarkId).length, [photos]);
+  const countWithPhotographer = useMemo(() => photos.filter((p) => p.photographer && p.photographer.trim() !== "").length, [photos]);
 
   // filteredPhotos is the gallery — all loaded photos after client-side filters
   const visiblePhotos = useMemo(() => filteredPhotos.slice(0, displayLimit), [filteredPhotos, displayLimit]);
@@ -277,10 +308,25 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
   const selectedPhoto = selectedIndex !== null ? filteredPhotos[selectedIndex] ?? null : null;
 
   const clearFilters = () => {
-    setSearchTerm(""); setDecadeFilter(null); setActiveTag(null); setAiResultIds(null);
+    setSearchTerm("");
+    setSelectedTown(null);
+    setFilterWithPeople(false);
+    setFilterWithPhotographer(false);
+    setFilterWithLandmark(false);
+    setDecadeFilter(null);
+    setActiveTag(null);
+    setAiResultIds(null);
   };
 
-  const hasFilters = searchTerm || decadeFilter !== null || activeTag || aiResultIds !== null;
+  const hasFilters =
+    searchTerm ||
+    selectedTown !== null ||
+    filterWithPeople ||
+    filterWithPhotographer ||
+    filterWithLandmark ||
+    decadeFilter !== null ||
+    activeTag !== null ||
+    aiResultIds !== null;
 
   if (error) {
     return (
@@ -300,17 +346,17 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
         <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-8 gap-4">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-100 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-              <Landmark className="w-3 h-3" /> Memoria Viva de Estella-Lizarra
+              <Landmark className="w-3 h-3" /> Archivo Fotográfico Histórico de Navarra
             </div>
             <h2 className="text-4xl md:text-5xl font-serif text-[#3A3A28] leading-tight">
-              Explorar el <span className="italic text-[#5A5A40]">Archivo</span>
+              Explorar el <span className="italic text-[#5A5A40]">Archivo Histórico</span>
             </h2>
-            <p className="text-gray-500 max-w-lg">
+            <p className="text-gray-500 max-w-xl">
               {totalCount !== null
-                ? `${totalCount.toLocaleString()} fotografías históricas`
+                ? `${totalCount.toLocaleString()} fotografías históricas catalogadas`
                 : photos.length > 0
                 ? `${photos.length.toLocaleString()}+ fotografías históricas`
-                : "Cargando archivo..."} · Busca por calle, año o personaje.
+                : "Cargando archivo..."} · Estella-Lizarra y pueblos de Navarra. Busca por vecino, calle, año o fotógrafo.
             </p>
           </div>
           <motion.button
@@ -328,8 +374,66 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
           </motion.button>
         </div>
 
+        {/* Selector de Pueblos de Navarra */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] uppercase tracking-wider font-bold text-gray-500 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-amber-700" /> Pueblo / Localidad:
+            </span>
+            {selectedTown && (
+              <button
+                onClick={() => setSelectedTown(null)}
+                className="text-xs text-amber-800 hover:underline font-semibold cursor-pointer"
+              >
+                Ver toda Navarra
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+            <button
+              onClick={() => setSelectedTown(null)}
+              className={cn(
+                "px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer",
+                selectedTown === null
+                  ? "bg-[#3A3A28] text-white border-[#3A3A28] shadow-sm"
+                  : "bg-white text-gray-600 border-[#e8e8e6] hover:border-gray-400"
+              )}
+            >
+              <span>🏰 Toda Navarra</span>
+              <span className="text-[10px] opacity-70">({photos.length})</span>
+            </button>
+            {NAVARRA_TOWNS.map((town) => {
+              const count = photos.filter(
+                (p) =>
+                  p.townSlug === town.id ||
+                  (p.town && p.town.toLowerCase().includes(town.name.toLowerCase())) ||
+                  (town.id === "estella-lizarra" && !p.town)
+              ).length;
+              if (count === 0 && town.id !== "estella-lizarra" && town.id !== "olite-erriberri" && town.id !== "tafalla" && town.id !== "tudela" && town.id !== "pamplona-iruna") {
+                return null;
+              }
+              const isSelected = selectedTown === town.id;
+              return (
+                <button
+                  key={town.id}
+                  onClick={() => setSelectedTown(isSelected ? null : town.id)}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer",
+                    isSelected
+                      ? "bg-[#5A5A40] text-white border-[#5A5A40] shadow-sm"
+                      : "bg-white text-gray-600 border-[#e8e8e6] hover:border-[#5A5A40]"
+                  )}
+                >
+                  <span>{town.name}</span>
+                  {count > 0 && <span className="text-[10px] opacity-75">({count})</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Search bar */}
-        <div className="flex gap-3 mb-5">
+        <div className="flex gap-3 mb-4">
           <div className="flex-1 relative group">
             <SearchIcon className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 transition-colors", isAiMode ? "text-purple-400" : "text-gray-400 group-focus-within:text-[#5A5A40]")} />
             <input
@@ -343,10 +447,10 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
                   ? "border-purple-200 focus:ring-2 focus:ring-purple-400/30 focus:border-purple-400 placeholder-purple-300"
                   : "border-transparent focus:bg-white focus:ring-2 focus:ring-[#5A5A40]/20 focus:border-[#5A5A40] placeholder-gray-400 shadow-inner"
               )}
-              placeholder={isAiMode ? "Pregúntame algo (ej: fotos de la plaza en los años 50)..." : "Buscar por plaza, calle, evento, personaje..."}
+              placeholder={isAiMode ? "Pregúntame algo (ej: fotos de la plaza en los años 50)..." : "Buscar por vecino, calle, comercio, plaza, fotógrafo o año..."}
             />
             {searchTerm && (
-              <button onClick={() => { setSearchTerm(""); setAiResultIds(null); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <button onClick={() => { setSearchTerm(""); setAiResultIds(null); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer">
                 <X className="h-4 w-4" />
               </button>
             )}
@@ -356,10 +460,70 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
               initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
               onClick={handleAiSearch}
               disabled={isAiSearching || !searchTerm.trim()}
-              className="bg-[#6A4C93] hover:bg-[#583980] disabled:opacity-50 text-white px-6 py-3.5 rounded-2xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap shadow-lg"
+              className="bg-[#6A4C93] hover:bg-[#583980] disabled:opacity-50 text-white px-6 py-3.5 rounded-2xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap shadow-lg cursor-pointer"
             >
               {isAiSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Sparkles className="w-4 h-4" /> Buscar</>}
             </motion.button>
+          )}
+        </div>
+
+        {/* Filtros Inteligentes de Calidad */}
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          <button
+            onClick={() => setFilterWithPeople(!filterWithPeople)}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer",
+              filterWithPeople
+                ? "bg-purple-100 text-purple-900 border-purple-300 shadow-sm"
+                : "bg-white text-gray-600 border-gray-200 hover:border-purple-300"
+            )}
+          >
+            <Users className="w-3.5 h-3.5 text-purple-600" />
+            <span>Vecinos identificados</span>
+            <span className="bg-purple-200/60 text-purple-900 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+              {countWithPeople}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setFilterWithLandmark(!filterWithLandmark)}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer",
+              filterWithLandmark
+                ? "bg-amber-100 text-amber-900 border-amber-300 shadow-sm"
+                : "bg-white text-gray-600 border-gray-200 hover:border-amber-300"
+            )}
+          >
+            <MapPin className="w-3.5 h-3.5 text-amber-700" />
+            <span>Ubicadas en el mapa</span>
+            <span className="bg-amber-200/60 text-amber-900 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+              {countWithLandmark}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setFilterWithPhotographer(!filterWithPhotographer)}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer",
+              filterWithPhotographer
+                ? "bg-blue-100 text-blue-900 border-blue-300 shadow-sm"
+                : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"
+            )}
+          >
+            <Camera className="w-3.5 h-3.5 text-blue-600" />
+            <span>Con fotógrafo acreditado</span>
+            <span className="bg-blue-200/60 text-blue-900 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+              {countWithPhotographer}
+            </span>
+          </button>
+
+          {hasFilters && (
+            <button
+              onClick={clearFilters}
+              className="text-xs text-red-600 hover:text-red-800 font-semibold flex items-center gap-1 ml-auto cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" /> Limpiar filtros
+            </button>
           )}
         </div>
 

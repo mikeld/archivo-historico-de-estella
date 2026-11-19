@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { getArchivePhotos } from "../lib/dataService";
 import { Photo } from "../types";
 import { PhotoDetailModal } from "../components/PhotoDetailModal";
-import { MapPin, Image as ImageIcon, Sparkles, Filter, X, ChevronRight, Layers, ExternalLink } from "lucide-react";
+import { MapPin, Image as ImageIcon, Sparkles, Filter, X, ChevronRight, Layers, ExternalLink, Building2 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { NAVARRA_TOWNS, NavarraTown } from "../data/navarra-towns";
 
 export interface Landmark {
   id: string;
@@ -191,11 +192,11 @@ export function HistoricalMap() {
       if (!L) return;
 
       if (!mapInstanceRef.current) {
-        // Coordenadas centro de Estella
+        // Coordenadas centro de Estella / Navarra
         const map = L.map(mapContainerRef.current, {
           center: [42.6705, -2.0298],
-          zoom: 15,
-          minZoom: 13,
+          zoom: 14,
+          minZoom: 8,
           maxZoom: 18,
           zoomControl: true,
         });
@@ -215,7 +216,49 @@ export function HistoricalMap() {
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
 
-      // Añadir marcadores por cada punto histórico
+      // Añadir marcadores por cada municipio de Navarra
+      NAVARRA_TOWNS.forEach((town) => {
+        if (town.id === "estella-lizarra") return; // Estella tiene sus propios marcadores detallados por monumento
+
+        const townIcon = L.divIcon({
+          className: "custom-town-pin",
+          html: `
+            <div style="
+              background: #3A3A28;
+              color: #fefae0;
+              border: 2px solid #e0c088;
+              border-radius: 9999px;
+              padding: 4px 10px;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              font-weight: 600;
+              font-size: 11px;
+              white-space: nowrap;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+              cursor: pointer;
+            ">
+              <span>🏰</span>
+              <span>${town.name.split("-")[0]}</span>
+            </div>
+          `,
+          iconSize: [80, 26],
+          iconAnchor: [40, 13],
+        });
+
+        const townMarker = L.marker(town.coords, { icon: townIcon }).addTo(map);
+        townMarker.on("click", () => {
+          map.setView(town.coords, 14, { animate: true });
+        });
+        townMarker.bindTooltip(`<strong>${town.name}</strong><br/>Merindad de ${town.merindad}<br/><span style="color:#666;font-size:10px">${town.description || ""}</span>`, {
+          direction: "top",
+          offset: [0, -12],
+          className: "font-sans text-xs shadow-md rounded-lg py-1 px-2 border border-amber-200",
+        });
+        markersRef.current.push(townMarker);
+      });
+
+      // Añadir marcadores por cada punto histórico de Estella
       ESTELLA_LANDMARKS.forEach((lm) => {
         const count = landmarkPhotosMap.get(lm.id)?.length || 0;
         if (count === 0) return;
@@ -280,26 +323,46 @@ export function HistoricalMap() {
           <div>
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#5A5A40] mb-1">
               <MapPin className="w-4 h-4 text-amber-600" />
-              <span>Cartografía Histórica</span>
+              <span>Cartografía Histórica de Navarra</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-serif font-bold text-gray-900">
-              Mapa Histórico de Estella-Lizarra
+              Mapa Histórico de Navarra
             </h1>
             <p className="text-sm text-gray-600 mt-1 max-w-2xl">
-              Explora las calles, plazas, puentes y monumentos de la ciudad del Ega. Pulsa en cada punto del plano para descubrir las fotografías tomadas en ese rincón a lo largo de las décadas.
+              Explora las calles, plazas, puentes y monumentos de Estella-Lizarra y los municipios históricos de Navarra. Pulsa en cada punto del plano para descubrir las fotografías tomadas a lo largo de las décadas.
             </p>
           </div>
 
           <div className="flex items-center gap-2 bg-[#eae8e3]/60 px-4 py-2 rounded-2xl border border-[#d8d6ce] shrink-0 text-xs font-semibold text-[#5A5A40]">
             <ImageIcon className="w-4 h-4 text-amber-700" />
-            <span>449 fotos geolocalizadas</span>
+            <span>338 fotos en monumentos verificados</span>
           </div>
         </div>
 
+        {/* Quick jump towns of Navarra */}
+        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 shrink-0 mr-1 flex items-center gap-1">
+            <Building2 className="w-3.5 h-3.5 text-amber-700" /> Municipios:
+          </span>
+          {NAVARRA_TOWNS.map((town) => (
+            <button
+              key={town.id}
+              onClick={() => {
+                if (mapInstanceRef.current) {
+                  mapInstanceRef.current.setView(town.coords, town.id === "estella-lizarra" ? 15 : 14, { animate: true });
+                }
+              }}
+              className="px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition-all border bg-amber-50/60 hover:bg-amber-100 text-amber-900 border-amber-200 cursor-pointer"
+            >
+              🏰 {town.name}
+            </button>
+          ))}
+        </div>
+
         {/* Quick jump carousel of landmarks */}
-        <div className="mt-6 pt-4 border-t border-gray-100 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 shrink-0 mr-1">
-            Lugares:
+            Monumentos Estella:
           </span>
           {ESTELLA_LANDMARKS.map((lm) => {
             const count = landmarkPhotosMap.get(lm.id)?.length || 0;

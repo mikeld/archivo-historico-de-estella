@@ -87,7 +87,7 @@ export function Navigation({
                   Archivo Histórico
                 </span>
                 <span className="text-[10px] uppercase tracking-[0.2em] text-[#5A5A40] font-bold opacity-80 whitespace-nowrap">
-                  Estella - Lizarra
+                  Navarra · Nafarroa
                 </span>
               </div>
             </Link>
@@ -366,10 +366,10 @@ export function App() {
               {/* Col 1 */}
               <div className="space-y-4 text-center md:text-left">
                 <h3 className="font-serif text-xl text-[#3A3A28] font-bold">
-                  Archivo Histórico de Estella
+                  Archivo Histórico de Navarra
                 </h3>
                 <p className="text-sm text-gray-500 max-w-sm mx-auto md:mx-0">
-                  Un proyecto de memoria gráfica colectiva para preservar y descubrir las historias que esconden las calles y fotografías de Estella-Lizarra.
+                  Memoria gráfica y hemeroteca colectiva para preservar y descubrir las historias que esconden las calles, pueblos y fotografías de Navarra.
                 </p>
               </div>
 
@@ -414,7 +414,7 @@ export function App() {
             </div>
             
             <div className="border-t border-[#e8e8e6] pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
-              <p>&copy; {new Date().getFullYear()} Archivo Histórico de Estella-Lizarra. Colaboran los ciudadanos de la ciudad.</p>
+              <p>&copy; {new Date().getFullYear()} Archivo Histórico de Navarra · Memoria Gráfica Colectiva.</p>
               <CurrentBuildBadge />
             </div>
           </div>

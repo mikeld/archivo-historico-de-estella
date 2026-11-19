@@ -1,0 +1,51 @@
+{
+  "estella-lizarra": {
+    "name": "Estella-Lizarra",
+    "slug": "estella-lizarra",
+    "merindad": "Estella",
+    "comarca": "Tierra Estella",
+    "facebookGroupId": "393354891012356",
+    "facebookGroupName": "Fotos Antiguas de Estella",
+    "facebookPhotosUrl": "https://www.facebook.com/groups/393354891012356/media/photos"
+  },
+  "olite-erriberri": {
+    "name": "Olite-Erriberri",
+    "slug": "olite-erriberri",
+    "merindad": "Olite",
+    "comarca": "Zona Media",
+    "facebookGroupName": "Fotos Antiguas de Olite",
+    "facebookPhotosUrl": ""
+  },
+  "tafalla": {
+    "name": "Tafalla",
+    "slug": "tafalla",
+    "merindad": "Olite",
+    "comarca": "Zona Media",
+    "facebookGroupName": "Tafalla en el Recuerdo",
+    "facebookPhotosUrl": ""
+  },
+  "tudela": {
+    "name": "Tudela",
+    "slug": "tudela",
+    "merindad": "Tudela",
+    "comarca": "Ribera de Navarra",
+    "facebookGroupName": "Fotos Antiguas de Tudela",
+    "facebookPhotosUrl": ""
+  },
+  "pamplona-iruna": {
+    "name": "Pamplona-Iruña",
+    "slug": "pamplona-iruna",
+    "merindad": "Pamplona",
+    "comarca": "Cuenca de Pamplona",
+    "facebookGroupName": "Pamplona en el Recuerdo",
+    "facebookPhotosUrl": ""
+  },
+  "elizondo-baztan": {
+    "name": "Elizondo (Baztan)",
+    "slug": "elizondo-baztan",
+    "merindad": "Pamplona",
+    "comarca": "Baztan-Bidasoa",
+    "facebookGroupName": "Fotos Antiguas del Valle de Baztan",
+    "facebookPhotosUrl": ""
+  }
+}

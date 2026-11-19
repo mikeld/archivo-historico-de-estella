@@ -100,10 +100,14 @@ export interface Photo {
   aiAnalysis?: string;                // Descripción visual técnica de IA (secundaria)
   landmarkId?: string;                // ID del monumento/lugar estricto en el mapa histórico
   town?: string;                      // Localidad (Estella-Lizarra, Olite, Tafalla, etc.)
+  townSlug?: string;                  // Slug normalizado ("estella-lizarra", "olite-erriberri", etc.)
+  merindad?: string;                  // Merindad histórica (Estella, Olite, Tudela, Pamplona, Sangüesa)
+  comarca?: string;                   // Comarca geográfica
   decade?: string;                    // Década formateada ("1960s")
   people?: string[];                  // Personas citadas o identificadas
   coordinates?: [number, number];     // Coordenadas geográficas [lat, lng]
   verifiedLocation?: boolean;         // Indicador de ubicación verificada sin duda
+  archiveReference?: string;          // Código oficial de archivo (ej. ES/NA/AGN/...)
 }
 
 export type SuggestionType =
