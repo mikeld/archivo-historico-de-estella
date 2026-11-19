@@ -19,6 +19,10 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
 
+// Asegurar que Homebrew, Node y utilidades de macOS están en PATH para launchd
+const EXTRA_PATHS = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+process.env.PATH = `${EXTRA_PATHS}:${process.env.PATH || ""}`;
+
 const isAuto = process.argv.includes("--auto");
 
 function log(msg: string) {
