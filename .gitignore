@@ -10,3 +10,5 @@ coverage/
 # Material pesado y descargado (se queda solo en local)
 facebook-import/
 public/archive-photos/
+public/navarra-photos/
+tmp_webp/

@@ -29,7 +29,9 @@ async function run() {
 
   const entries: DocumentEntry[] = JSON.parse(fs.readFileSync(JSON_FILE, "utf8"));
   const validEntries = entries.filter(e => e.title && e.id);
-  console.log(`Loaded ${validEntries.length} photo entries from the local JSON.`);
+  const limitArg = process.argv.find(a => a.startsWith("--limit="))?.split("=")[1];
+  const maxToProcess = limitArg ? parseInt(limitArg, 10) : validEntries.length;
+  console.log(`Loaded ${validEntries.length} photo entries from the local JSON. Processing up to: ${maxToProcess}`);
 
   console.log("Launching headless browser...");
   const browser = await chromium.launch({ headless: true });
@@ -53,7 +55,7 @@ async function run() {
   let failCount = 0;
 
   try {
-    for (let i = 0; i < validEntries.length; i++) {
+    for (let i = 0; i < Math.min(validEntries.length, maxToProcess); i++) {
       const entry = validEntries[i];
       const docId = `navarra_${entry.id}`;
       const destPath = path.join(OUT_DIR, `${docId}.jpg`);
@@ -70,43 +72,43 @@ async function run() {
       lastS3Url = null;
 
       try {
-        // Go to search portal page (resets filters and modals)
-        await page.goto("https://a3w-navarra.odilo.es/portalArchivo/controladorconopac?usr=null", { 
+        // Search portal (Navarra Archivo Abierto)
+        await page.goto("https://navarra.archivoabierto.es/portalArchivo/seleccionopac?action=inicio&OP=OP999&usr=consulta&PT=PT000001", { 
           waitUntil: "networkidle",
-          timeout: 20000 
+          timeout: 25000 
         });
 
-        // Find search input
-        const searchInput = page.locator('input[type="text"]').first();
-        await searchInput.waitFor({ state: "visible", timeout: 5000 });
-        
-        // Search by title (titles are clean and yield correct records in the new portal)
+        // Search by title or reference
         const cleanTitle = entry.title!.replace(/[.\/]/g, " ").trim();
-        await searchInput.fill(cleanTitle);
-        await page.keyboard.press("Enter");
-
-        // Wait for results or empty modal to load
-        // S3 urls are requested immediately when results render in the table
-        await Promise.race([
-          page.waitForResponse(resp => resp.url().includes("amazonaws.com") && resp.url().includes("thumbnail"), { timeout: 8000 }).catch(() => {}),
-          page.waitForSelector('.modal-body:has-text("No hay resultados")', { timeout: 8000 }).catch(() => {}),
-          page.waitForTimeout(6000)
+        await page.fill("#valx", cleanTitle);
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: "networkidle", timeout: 20000 }),
+          page.keyboard.press("Enter")
         ]);
 
-        if (lastS3Url) {
-          // Download directly from the S3 signed URL (S3 doesn't block hotlinking/curl)
-          const imgResponse = await page.request.get(lastS3Url);
+        await page.waitForTimeout(1500);
+
+        // Find .doc-attachment background image
+        const bgUrl = await page.$eval(".doc-attachment", (el: any) => {
+          const m = el.style.backgroundImage.match(/url\(["\x27]?([^"\x27\)]+)["\x27]?\)/);
+          return m ? m[1] : null;
+        }).catch(() => null);
+
+        const targetUrl = bgUrl || lastS3Url;
+
+        if (targetUrl) {
+          const imgResponse = await page.request.get(targetUrl);
           if (imgResponse.ok()) {
             const buffer = await imgResponse.body();
             fs.writeFileSync(destPath, buffer);
-            console.log(`DOWNLOADED (${(buffer.length / 1024).toFixed(0)} KB)`);
+            console.log(`DESCARGADA (${(buffer.length / 1024).toFixed(0)} KB)`);
             successCount++;
           } else {
-            console.log("FAILED to download from S3");
+            console.log("ERROR en descarga S3");
             failCount++;
           }
         } else {
-          console.log("NOT FOUND (No digital copy or not matching title)");
+          console.log("SIN COPIA DIGITAL O NO ENCONTRADA");
           failCount++;
         }
       } catch (err: any) {

@@ -17,10 +17,14 @@ import {
   Loader2,
   UploadCloud,
   Sparkles,
+  Building2,
+  Users,
+  BookOpen,
 } from "lucide-react";
 import { Photo, Role } from "../types";
 import imageCompression from 'browser-image-compression';
 import { ARCHIVO_IA_URL } from "../services/cronistaService";
+import { NAVARRA_TOWNS } from "../data/navarra-towns";
 
 interface UploadProps {
   user: User | null;
@@ -32,6 +36,9 @@ interface PhotoFormData {
   imageUrl: string;
   owner: string;
   photographer: string;
+  town: string;
+  people: string;
+  anecdote: string;
   location: string;
   collection: string;
   referenceCode: string;
@@ -256,6 +263,30 @@ export function Upload({ user, userRole }: UploadProps) {
       if (data.license) newPhoto.license = data.license;
       if (data.physicalFormat) newPhoto.physicalFormat = data.physicalFormat;
 
+      // Asignación de Pueblo, Merindad, Personas identificadas y Memoria Oral
+      if (data.town) {
+        newPhoto.town = data.town;
+        const tInfo = NAVARRA_TOWNS.find((t) => t.name === data.town || t.id === data.town);
+        if (tInfo) {
+          newPhoto.townSlug = tInfo.id;
+          newPhoto.merindad = tInfo.merindad;
+        }
+      }
+      if (data.people) {
+        newPhoto.people = data.people
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean);
+        newPhoto.people.forEach((p) => searchTerms.push(p.toLowerCase()));
+      }
+      if (data.anecdote && data.anecdote.trim()) {
+        const oralHistoryText = `📖 Memoria Oral: ${data.anecdote.trim()}`;
+        newPhoto.description = newPhoto.description
+          ? `${newPhoto.description}\n\n${oralHistoryText}`
+          : oralHistoryText;
+        searchTerms.push("memoria oral", "historia viva");
+      }
+
       console.log("Photo to save:", newPhoto);
       console.log("Calling setDoc on db:", db);
 
@@ -475,7 +506,28 @@ export function Upload({ user, userRole }: UploadProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="town"
+                  className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5"
+                >
+                  <Building2 className="w-4 h-4 text-amber-700" />
+                  Pueblo / Municipio de Navarra *
+                </label>
+                <select
+                  {...register("town")}
+                  defaultValue="Estella-Lizarra"
+                  className="w-full px-4 py-2 border border-[#e8e8e6] rounded-xl focus:ring-2 focus:ring-[#5A5A40] focus:border-[#5A5A40] bg-white transition-colors"
+                >
+                  {NAVARRA_TOWNS.map((t) => (
+                    <option key={t.id} value={t.name}>
+                      {t.name} ({t.merindad})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label
                   htmlFor="year"
@@ -499,21 +551,61 @@ export function Upload({ user, userRole }: UploadProps) {
                   </p>
                 )}
               </div>
-              
-              <div>
-                <label
-                  htmlFor="location"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Lugar
-                </label>
-                <input
-                  {...register("location")}
-                  type="text"
-                  placeholder="Ej: Plaza de los Fueros"
-                  className="w-full px-4 py-2 border border-[#e8e8e6] rounded-xl focus:ring-2 focus:ring-[#5A5A40] focus:border-[#5A5A40] transition-colors"
-                />
-              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="location"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Calle, Plaza o Rincón
+              </label>
+              <input
+                {...register("location")}
+                type="text"
+                placeholder="Ej: Plaza de los Fueros, Calle Mayor..."
+                className="w-full px-4 py-2 border border-[#e8e8e6] rounded-xl focus:ring-2 focus:ring-[#5A5A40] focus:border-[#5A5A40] transition-colors"
+              />
+            </div>
+
+            {/* Vecinos identificados */}
+            <div>
+              <label
+                htmlFor="people"
+                className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5"
+              >
+                <Users className="w-4 h-4 text-purple-600" />
+                Vecinos o Familiares que aparecen (Nombres propios)
+              </label>
+              <input
+                {...register("people")}
+                type="text"
+                placeholder="Ej: Patxi Ruiz, Tomás Martínez, Juana Goñi (separados por comas)"
+                className="w-full px-4 py-2 border border-[#e8e8e6] rounded-xl focus:ring-2 focus:ring-[#5A5A40] focus:border-[#5A5A40] transition-colors"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Identifica a las personas que aparecen para preservar la memoria vecinal.
+              </p>
+            </div>
+
+            {/* Memoria oral / Historia familiar */}
+            <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200">
+              <label
+                htmlFor="anecdote"
+                className="block text-sm font-bold text-amber-950 mb-1 flex items-center gap-1.5"
+              >
+                <BookOpen className="w-4 h-4 text-amber-700" />
+                Historia Viva / Memoria Oral de la Foto
+              </label>
+              <textarea
+                {...register("anecdote")}
+                rows={3}
+                placeholder="¿Qué historia tiene esta foto? Cuéntanos la anécdota, el oficio, qué festividad o evento se celebraba, recuerdos de la familia o del pueblo..."
+                className="w-full px-4 py-2 bg-white border border-amber-200 rounded-xl focus:ring-2 focus:ring-[#5A5A40] focus:border-[#5A5A40] transition-colors resize-none text-sm"
+              ></textarea>
+              <p className="text-xs text-amber-800/80 mt-1">
+                La historia y memoria oral de los vecinos es el valor más grande de este archivo.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
