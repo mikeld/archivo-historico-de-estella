@@ -296,6 +296,44 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
     });
   }, [photos, searchTerm, selectedTown, filterWithPeople, filterWithPhotographer, filterWithLandmark, decadeFilter, activeTag, isAiMode, aiResultIds]);
 
+  // Handlers inteligentes para filtros de calidad
+  const toggleFilterWithPeople = () => {
+    if (!filterWithPeople && selectedTown) {
+      const townHasPeople = photos.some(
+        (p) =>
+          (p.townSlug === selectedTown || (p.town && p.town.toLowerCase().includes(selectedTown.toLowerCase()))) &&
+          p.people &&
+          p.people.length > 0
+      );
+      if (!townHasPeople) setSelectedTown(null);
+    }
+    setFilterWithPeople(!filterWithPeople);
+  };
+
+  const toggleFilterWithLandmark = () => {
+    if (!filterWithLandmark && selectedTown) {
+      const townHasLandmark = photos.some(
+        (p) =>
+          (p.townSlug === selectedTown || (p.town && p.town.toLowerCase().includes(selectedTown.toLowerCase()))) &&
+          !!p.landmarkId
+      );
+      if (!townHasLandmark) setSelectedTown(null);
+    }
+    setFilterWithLandmark(!filterWithLandmark);
+  };
+
+  const toggleFilterWithPhotographer = () => {
+    if (!filterWithPhotographer && selectedTown) {
+      const townHasPhotographer = photos.some(
+        (p) =>
+          (p.townSlug === selectedTown || (p.town && p.town.toLowerCase().includes(selectedTown.toLowerCase()))) &&
+          !!p.photographer?.trim()
+      );
+      if (!townHasPhotographer) setSelectedTown(null);
+    }
+    setFilterWithPhotographer(!filterWithPhotographer);
+  };
+
   // Contadores dinámicos para los filtros inteligentes
   const countWithPeople = useMemo(() => photos.filter((p) => p.people && p.people.length > 0).length, [photos]);
   const countWithLandmark = useMemo(() => photos.filter((p) => !!p.landmarkId).length, [photos]);
@@ -409,9 +447,7 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
                   (p.town && p.town.toLowerCase().includes(town.name.toLowerCase())) ||
                   (town.id === "estella-lizarra" && !p.town)
               ).length;
-              if (count === 0 && town.id !== "estella-lizarra" && town.id !== "olite-erriberri" && town.id !== "tafalla" && town.id !== "tudela" && town.id !== "pamplona-iruna") {
-                return null;
-              }
+              if (count === 0) return null; // Solo mostrar localidades con fondos digitalizados
               const isSelected = selectedTown === town.id;
               return (
                 <button
@@ -429,6 +465,12 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
                 </button>
               );
             })}
+            <Link
+              to="/upload"
+              className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-dashed border-amber-300 text-amber-800 bg-amber-50/50 hover:bg-amber-100 transition-all whitespace-nowrap flex items-center gap-1 cursor-pointer"
+            >
+              <span>+ Aportar fotos de tu pueblo</span>
+            </Link>
           </div>
         </div>
 
@@ -470,7 +512,7 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
         {/* Filtros Inteligentes de Calidad */}
         <div className="flex flex-wrap items-center gap-2 mb-5">
           <button
-            onClick={() => setFilterWithPeople(!filterWithPeople)}
+            onClick={toggleFilterWithPeople}
             className={cn(
               "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer",
               filterWithPeople
@@ -486,7 +528,7 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
           </button>
 
           <button
-            onClick={() => setFilterWithLandmark(!filterWithLandmark)}
+            onClick={toggleFilterWithLandmark}
             className={cn(
               "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer",
               filterWithLandmark
@@ -502,7 +544,7 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
           </button>
 
           <button
-            onClick={() => setFilterWithPhotographer(!filterWithPhotographer)}
+            onClick={toggleFilterWithPhotographer}
             className={cn(
               "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer",
               filterWithPhotographer
