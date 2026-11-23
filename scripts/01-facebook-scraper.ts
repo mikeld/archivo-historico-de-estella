@@ -24,7 +24,9 @@ const townSources = JSON.parse(fs.readFileSync(path.join(__dirname, "town-source
 const townConfig = townSources[townArg] || townSources["estella-lizarra"];
 
 const GROUP_PHOTOS_URL = townConfig.facebookPhotosUrl || "https://www.facebook.com/groups/393354891012356/media/photos";
-const OUTPUT_DIR       = path.join(__dirname, `../facebook-import/${townArg}`);
+const OUTPUT_DIR       = townArg === "estella-lizarra"
+  ? path.join(__dirname, "../facebook-import")
+  : path.join(__dirname, `../facebook-import/${townArg}`);
 const IMAGES_DIR       = path.join(OUTPUT_DIR, "images");
 const RAW_FILE         = path.join(OUTPUT_DIR, "raw-posts.json");
 const STATE_FILE       = path.join(OUTPUT_DIR, "scraper-state.json");
@@ -37,6 +39,7 @@ const SAVE_EVERY        = 50;   // guardar cada 50 (no cada 20)
 
 const MODE: "all" | "new" = process.argv.includes("--mode=new") ? "new" : "all";
 const SKIP_GRID = process.argv.includes("--skip-grid");
+const IS_AUTO = process.argv.includes("--auto") || !process.stdin.isTTY;
 // ──────────────────────────────────────────────────────────────────────────────
 
 interface RawPost {
@@ -204,12 +207,17 @@ async function main() {
   console.log("Abriendo pestaña de Fotos del grupo...");
   await page.goto(GROUP_PHOTOS_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-  console.log("\n📌 Si Facebook pide login, hazlo ahora.");
-  console.log("   Cuando veas la cuadrícula de fotos, pulsa ENTER...\n");
-  await new Promise<void>((resolve) => {
-    process.stdin.resume();
-    process.stdin.once("data", () => { process.stdin.pause(); resolve(); });
-  });
+  if (!IS_AUTO) {
+    console.log("\n📌 Si Facebook pide login, hazlo ahora.");
+    console.log("   Cuando veas la cuadrícula de fotos, pulsa ENTER...\n");
+    await new Promise<void>((resolve) => {
+      process.stdin.resume();
+      process.stdin.once("data", () => { process.stdin.pause(); resolve(); });
+    });
+  } else {
+    console.log("\n⚡ Modo automático (desatendido): esperando carga de la cuadrícula...");
+    await page.waitForTimeout(4000);
+  }
 
   // Cerrar popups
   for (const sel of ['[aria-label="Close"]', '[aria-label="Cerrar"]']) {
@@ -227,9 +235,10 @@ async function main() {
 
   let emptyScrolls = 0;
   let scrollCount  = 0;
+  const MAX_SCROLLS_MODE = MODE === "new" ? 6 : 999999;
 
   if (!SKIP_GRID) {
-    while (photoUrls.size < MAX_PHOTOS && emptyScrolls < MAX_EMPTY_SCROLLS) {
+    while (photoUrls.size < MAX_PHOTOS && emptyScrolls < MAX_EMPTY_SCROLLS && scrollCount < MAX_SCROLLS_MODE) {
       const links = await page.locator('a[href*="/photo/"], a[href*="/photos/"]').all();
       let foundNew = 0;
       for (const link of links) {

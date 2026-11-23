@@ -39,7 +39,7 @@ async function run() {
   // 1. Scraping incremental de Facebook
   log("Paso 1/4: Comprobando fotos nuevas en el grupo de Facebook...");
   try {
-    const scraperCmd = `npx tsx scripts/01-facebook-scraper.ts --town=${townArg} --mode=new ${isAuto ? "--skip-grid" : ""}`;
+    const scraperCmd = `npx tsx scripts/01-facebook-scraper.ts --town=${townArg} --mode=new ${isAuto ? "--auto" : ""}`;
     execSync(scraperCmd, { cwd: ROOT, stdio: "inherit" });
   } catch (err: any) {
     log(`⚠️ Advertencia en scraper: ${err.message}`);
