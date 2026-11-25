@@ -34,9 +34,7 @@ const currentTown = townSources[townArg] || townSources["estella-lizarra"];
 
 const IMPORT_DIR      = townArg === "estella-lizarra"
   ? path.join(__dirname, "../facebook-import")
-  : (fs.existsSync(path.join(__dirname, `../facebook-import/${townArg}/raw-posts.json`))
-      ? path.join(__dirname, `../facebook-import/${townArg}`)
-      : path.join(__dirname, "../facebook-import"));
+  : path.join(__dirname, `../facebook-import/${townArg}`);
 const RAW_FILE        = path.join(IMPORT_DIR, "raw-posts.json");
 const CATALOGED_FILE  = path.join(IMPORT_DIR, "cataloged-posts.json");
 const SKIPPED_FILE    = path.join(IMPORT_DIR, "skipped-posts.json");
@@ -134,10 +132,15 @@ interface ImageCatalog {
   year?: number;
   yearRange?: string;
   yearMax?: number;
+  decade?: string;
+  town?: string;
+  townName?: string;
+  merindad?: string;
   location: string;
+  landmarkId?: string | null;
   tags: string[];
   keywords: string[];          // palabras clave para búsqueda
-  people?: string;             // descripción de personas visibles
+  people?: string[] | string;  // descripción o lista de personas visibles/identificadas
   landmarks?: string[];        // edificios/monumentos reconocibles
   activities?: string;         // qué ocurre en la foto
   era?: string;                // época visual ("años 50", "principios siglo XX")
@@ -204,8 +207,9 @@ async function analyzeImage(
   const filename = path.basename(imagePath);
 
   const commentsSnippet = (facebookComments || []).slice(0, 20).join("\n---\n");
+  const isEstellaOnly = townArg === "estella-lizarra";
 
-  const prompt = `Eres un archivero e historiador experto especializado en Estella-Lizarra y Navarra (España).
+  const prompt = isEstellaOnly ? `Eres un archivero e historiador experto especializado en Estella-Lizarra y Navarra (España).
 Tu misión es seleccionar y documentar con MÁXIMO RIGOR fotografías con VALOR HISTÓRICO REAL para un archivo público.
 
 Texto del post original de Facebook:
@@ -279,24 +283,74 @@ Responde SOLO con JSON válido (sin markdown, sin texto extra):
 }
 
 ━━ SOBRE "keywords" ━━
-Genera 10-15 palabras clave en español para búsqueda. Incluye:
-- Nombres propios visibles (calles, plazas, iglesias, ríos)
-- Oficios o profesiones visibles (herrero, lavandera, sacerdote, militar)
-- Objetos característicos (carro de caballos, tranvía, toldo, farol)
-- Eventos (inauguración, procesión, nevada, inundación, boda)
-- Gentilicios y variantes (estellés, estellesa, navarro, navarra)
-- Variantes en euskera si aplica (Lizarra, Nafarroa)
+Genera 10-15 palabras clave en español para búsqueda.
+━━ CRITERIOS DE CONFIANZA ━━
+1.0 = foto B&N clara con ubicación reconocible
+0.8 = foto antigua identificable
+0.6 = probablemente histórica pero algo dudosa
+0.4 = incertidumbre alta
+< 0.4 = no se puede determinar → isHistorical: false
+Tags: plaza, calle, iglesia, mercado, fiestas, procesion, semana_santa, san_andres, carnaval, deporte, escuela, hospital, rio_ega, puente, tren, comercio, familia, retrato, aerea, inundacion, nevada, obras, militar, boda, documento, postal, panoramica`
+  : `Eres un archivero e historiador experto especializado en Navarra (España) y sus pueblos, ciudades y valles históricos (Pamplona-Iruña, Tafalla, Olite, Tudela, Sangüesa, Baztan, Estella, etc.).
+Tu misión es seleccionar y documentar con MÁXIMO RIGOR fotografías con VALOR HISTÓRICO REAL para un archivo público de toda Navarra ("La Pamplona desaparecida / La Navarra olvidada").
+
+Texto del post original de Facebook:
+"""${postText?.slice(0, 1000) || "(sin texto)"}"""
+Publicado por: ${facebookAuthor || "desconocido"}
+
+Comentarios y testimonios orales de los vecinos en el grupo:
+"""
+${commentsSnippet || "(sin comentarios adicionales)"}
+"""
+
+━━ ACEPTA (isHistorical: true) ━━
+✅ Fotos en blanco y negro o color antiguo de cualquier pueblo, ciudad, paraje o valle de Navarra
+✅ Vistas de calles, plazas, murallas, edificios antiguos de Pamplona o de pueblos de Navarra
+✅ Grupos de vecinos, familias identificadas, oficios tradicionales, labores del campo, ferias de ganado
+✅ Documentos históricos, postales antiguas, recortes de prensa, grabados de Navarra
+✅ Fiestas históricas, carnavales tradicionales, procesiones, romerías navarras
+✅ Cualquier imagen anterior a ${MAX_YEAR} tomada en Navarra
+
+━━ RECHAZA (isHistorical: false) ━━
+❌ Fotos actuales o recientes (años 2000 en adelante)
+❌ Fuegos artificiales o fotos nocturnas sin contexto arquitectónico
+❌ Fotos que no sean de Navarra (España)
+❌ Memes, carteles comerciales modernos, fotos de móvil de pantallas
+❌ Fotos completamente borrosas o sin contenido visual identificable
+❌ Cualquier imagen posterior a ${MAX_YEAR}
+
+Responde SOLO con JSON válido (sin markdown, sin texto extra):
+{
+  "isHistorical": true/false,
+  "contentType": "photo_bw|photo_color_old|photo_color_recent|document|postcard|fireworks|other",
+  "skipReason": "motivo breve si isHistorical=false, sino null",
+  "title": "título conciso y formal en español (máx 10 palabras)",
+  "description": "descripción detallada: qué se ve, contexto histórico, personas mencionadas y testimonios de vecinos (máx 250 palabras)",
+  "year": número exacto o null,
+  "yearRange": "XXXX-XXXX" o null,
+  "yearMax": número (año máximo estimado),
+  "decade": "1910s|1920s|1930s|1940s|1950s|1960s|1970s|1980s|1990s" o null,
+  "town": "slug del pueblo: pamplona-iruna|olite-erriberri|tafalla|tudela|estella-lizarra|sanguesa-zangoza|elizondo-baztan|alsasua-altsasu|corella|otro-slug",
+  "townName": "Nombre oficial del municipio (ej: Pamplona, Olite, Tafalla, Tudela, Sangüesa, Ujué, Estella...)",
+  "merindad": "Pamplona|Olite|Tudela|Estella|Sangüesa",
+  "location": "barrio, calle, plaza o paraje concreto",
+  "landmarkId": null,
+  "tags": ["tag1", "tag2"],
+  "keywords": ["palabra1", "palabra2"],
+  "people": ["Nombre de vecino identificado 1", "Nombre 2"],
+  "landmarks": ["nombre de monumento o edificio"],
+  "activities": "qué actividad u oficio ocurre en la foto",
+  "era": "época visual estimada",
+  "confidence": número de 0.0 a 1.0,
+  "photographer": "nombre del fotógrafo si se indica en el post o comentarios"
+}
 
 ━━ CRITERIOS DE CONFIANZA ━━
-1.0 = foto B&N clara de Estella con ubicación reconocible
-0.8 = foto antigua identificable como Estella
-0.6 = probablemente Estella y antigua pero algo dudoso
-0.4 = posiblemente histórica pero incertidumbre alta
-< 0.4 = no se puede determinar → pon isHistorical: false
-
-Tags: plaza, calle, iglesia, mercado, fiestas, procesion, semana_santa, san_andres, carnaval, deporte, escuela, hospital, rio_ega, puente, tren, comercio, familia, retrato, aerea, inundacion, nevada, obras, militar, boda, documento, postal, panoramica, anos_10, anos_20, anos_30, anos_40, anos_50, anos_60, anos_70, anos_80, anos_90
-
-Zonas: ${KNOWN_ZONES}`;
+1.0 = foto B&N clara con ubicación o personas identificables de Navarra
+0.8 = foto antigua identificable de Navarra
+0.6 = probablemente histórica de Navarra
+0.4 = incertidumbre alta
+< 0.4 = no se puede determinar → isHistorical: false`;
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
@@ -337,7 +391,12 @@ Zonas: ${KNOWN_ZONES}`;
     year: parsed.year ?? undefined,
     yearRange: parsed.yearRange ?? undefined,
     yearMax: parsed.yearMax ?? undefined,
+    decade: parsed.decade ?? undefined,
+    town: parsed.town || currentTown?.slug || "pamplona-iruna",
+    townName: parsed.townName || currentTown?.name || "Pamplona-Iruña",
+    merindad: parsed.merindad || currentTown?.merindad || "Pamplona",
     location: parsed.location || "",
+    landmarkId: parsed.landmarkId ?? null,
     tags: Array.isArray(parsed.tags) ? parsed.tags : [],
     keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
     people: parsed.people ?? undefined,

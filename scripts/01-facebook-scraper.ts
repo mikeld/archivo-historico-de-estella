@@ -35,7 +35,8 @@ const RAW_FILE         = path.join(OUTPUT_DIR, "raw-posts.json");
 const STATE_FILE       = path.join(OUTPUT_DIR, "scraper-state.json");
 const PROFILE_DIR      = path.join(__dirname, "../facebook-import/.browser-profile");
 
-const MAX_PHOTOS        = 6000;
+const limitArg          = process.argv.find(a => a.startsWith("--limit="))?.split("=")[1];
+const MAX_PHOTOS        = limitArg ? parseInt(limitArg, 10) : 6000;
 const SCROLL_PAUSE_MS   = 2000;
 const MAX_EMPTY_SCROLLS = 15;
 const SAVE_EVERY        = 50;   // guardar cada 50 (no cada 20)
@@ -272,7 +273,9 @@ async function main() {
   }
 
   // ── FASE 2: Visitar cada foto y extraer detalles ──────────────────────────────
-  const pendingPhotoIds = [...photoUrls].filter(id => !savedIds.has(id));
+  const pendingPhotoIds = [...photoUrls]
+    .filter(id => !savedIds.has(id))
+    .slice(0, limitArg ? parseInt(limitArg, 10) : undefined);
   console.log(`▶ Fotos nuevas pendientes de procesar: ${pendingPhotoIds.length}\n`);
 
   if (pendingPhotoIds.length === 0) {
