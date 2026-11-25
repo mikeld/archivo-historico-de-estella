@@ -7,11 +7,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.join(__dirname, "..");
 const OUT_DIR = path.join(PROJECT_ROOT, "public/navarra-photos");
 const JSON_FILE = path.join(PROJECT_ROOT, "navarra-import/documents.json");
+const CACHE_FILE = path.join(PROJECT_ROOT, "navarra-import/download-state.json");
 
 interface DocumentEntry {
   id: string;
   title?: string;
   reference?: string;
+}
+
+interface DownloadCache {
+  downloaded: string[];
+  noCopy: string[];
+}
+
+function loadCache(): DownloadCache {
+  if (fs.existsSync(CACHE_FILE)) {
+    try {
+      return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
+    } catch {}
+  }
+  return { downloaded: [], noCopy: [] };
+}
+
+function saveCache(cache: DownloadCache) {
+  fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
 }
 
 async function run() {
@@ -29,9 +48,19 @@ async function run() {
 
   const entries: DocumentEntry[] = JSON.parse(fs.readFileSync(JSON_FILE, "utf8"));
   const validEntries = entries.filter(e => e.title && e.id);
+  const startArg = process.argv.find(a => a.startsWith("--start="))?.split("=")[1];
   const limitArg = process.argv.find(a => a.startsWith("--limit="))?.split("=")[1];
+  const startIndex = startArg ? parseInt(startArg, 10) : 0;
   const maxToProcess = limitArg ? parseInt(limitArg, 10) : validEntries.length;
-  console.log(`Loaded ${validEntries.length} photo entries from the local JSON. Processing up to: ${maxToProcess}`);
+  const endIndex = Math.min(validEntries.length, startIndex + maxToProcess);
+
+  const cache = loadCache();
+  const noCopySet = new Set(cache.noCopy);
+  const downloadedSet = new Set(cache.downloaded);
+
+  console.log(`Loaded ${validEntries.length} photo entries from local JSON.`);
+  console.log(`Range: [${startIndex} to ${endIndex}] (Processing up to ${maxToProcess})`);
+  console.log(`Cached: ${downloadedSet.size} downloaded, ${noCopySet.size} without digital copy.`);
 
   console.log("Launching headless browser...");
   const browser = await chromium.launch({ headless: true });
@@ -55,15 +84,22 @@ async function run() {
   let failCount = 0;
 
   try {
-    for (let i = 0; i < Math.min(validEntries.length, maxToProcess); i++) {
+    for (let i = startIndex; i < endIndex; i++) {
       const entry = validEntries[i];
       const docId = `navarra_${entry.id}`;
       const destPath = path.join(OUT_DIR, `${docId}.jpg`);
 
       process.stdout.write(`[${i + 1}/${validEntries.length}] Photo ${docId}... `);
 
-      if (fs.existsSync(destPath) && fs.statSync(destPath).size > 100) {
+      if (downloadedSet.has(docId) || (fs.existsSync(destPath) && fs.statSync(destPath).size > 100)) {
         console.log("SKIPPED (already downloaded)");
+        downloadedSet.add(docId);
+        skipCount++;
+        continue;
+      }
+
+      if (noCopySet.has(docId)) {
+        console.log("SKIPPED (cached: no digital copy)");
         skipCount++;
         continue;
       }
@@ -102,14 +138,18 @@ async function run() {
             const buffer = await imgResponse.body();
             fs.writeFileSync(destPath, buffer);
             console.log(`DESCARGADA (${(buffer.length / 1024).toFixed(0)} KB)`);
+            downloadedSet.add(docId);
             successCount++;
+            saveCache({ downloaded: [...downloadedSet], noCopy: [...noCopySet] });
           } else {
             console.log("ERROR en descarga S3");
             failCount++;
           }
         } else {
           console.log("SIN COPIA DIGITAL O NO ENCONTRADA");
+          noCopySet.add(docId);
           failCount++;
+          saveCache({ downloaded: [...downloadedSet], noCopy: [...noCopySet] });
         }
       } catch (err: any) {
         console.log(`ERROR (${err.message})`);
