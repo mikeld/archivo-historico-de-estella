@@ -78,6 +78,30 @@ function getTownInfo(place) {
   if (p.includes("sangüesa") || p.includes("zangoza")) {
     return { town: "Sangüesa-Zangoza", slug: "sanguesa-zangoza", merindad: "Sangüesa" };
   }
+  if (p.includes("puente la reina") || p.includes("gares")) {
+    return { town: "Puente la Reina-Gares", slug: "puente-la-reina-gares", merindad: "Pamplona" };
+  }
+  if (p.includes("javier")) {
+    return { town: "Javier", slug: "javier", merindad: "Sangüesa" };
+  }
+  if (p.includes("corella")) {
+    return { town: "Corella", slug: "corella", merindad: "Tudela" };
+  }
+  if (p.includes("larraga")) {
+    return { town: "Larraga", slug: "larraga", merindad: "Olite" };
+  }
+  if (p.includes("ujue") || p.includes("ujué") || p.includes("uxue")) {
+    return { town: "Ujué-Uxue", slug: "ujue", merindad: "Olite" };
+  }
+  if (p.includes("ochagav") || p.includes("otsagab")) {
+    return { town: "Ochagavía-Otsagabia", slug: "ochagavia-otsagabia", merindad: "Sangüesa" };
+  }
+  if (p.includes("roncal") || p.includes("erronkari")) {
+    return { town: "Roncal-Erronkari", slug: "roncal-erronkari", merindad: "Sangüesa" };
+  }
+  if (p.includes("baztan") || p.includes("elizondo")) {
+    return { town: "Elizondo (Baztan)", slug: "elizondo-baztan", merindad: "Pamplona" };
+  }
   if (p.includes("etxauri")) {
     return { town: "Etxauri", slug: "etxauri", merindad: "Pamplona" };
   }
@@ -86,6 +110,30 @@ function getTownInfo(place) {
   }
   if (p.includes("lizarraga") || p.includes("ergoiena")) {
     return { town: "Lizarraga (Ergoiena)", slug: "ergoiena", merindad: "Pamplona" };
+  }
+  if (p.includes("murieta")) {
+    return { town: "Murieta", slug: "murieta", merindad: "Estella" };
+  }
+  if (p.includes("mendaza") || p.includes("acedo")) {
+    return { town: "Mendaza / Acedo", slug: "mendaza", merindad: "Estella" };
+  }
+  if (p.includes("viana")) {
+    return { town: "Viana", slug: "viana", merindad: "Estella" };
+  }
+  if (p.includes("los arcos")) {
+    return { town: "Los Arcos", slug: "los-arcos", merindad: "Estella" };
+  }
+  if (p.includes("san adrián") || p.includes("san adrian")) {
+    return { town: "San Adrián", slug: "san-adrian", merindad: "Estella" };
+  }
+  if (p.includes("lodosa")) {
+    return { town: "Lodosa", slug: "lodosa", merindad: "Estella" };
+  }
+  if (p.includes("andosilla")) {
+    return { town: "Andosilla", slug: "andosilla", merindad: "Estella" };
+  }
+  if (p.includes("peralta") || p.includes("azkoien")) {
+    return { town: "Peralta-Azkoien", slug: "peralta-azkoien", merindad: "Olite" };
   }
   // Default: Estella-Lizarra
   return { town: "Estella-Lizarra", slug: "estella-lizarra", merindad: "Estella" };
