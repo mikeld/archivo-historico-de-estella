@@ -20,10 +20,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const townArg = process.argv.find(a => a.startsWith("--town="))?.split("=")[1] || "estella-lizarra";
+const groupUrlArg = process.argv.find(a => a.startsWith("--group-url="))?.split("=")[1];
 const townSources = JSON.parse(fs.readFileSync(path.join(__dirname, "town-sources.json"), "utf8"));
 const townConfig = townSources[townArg] || townSources["estella-lizarra"];
 
-const GROUP_PHOTOS_URL = townConfig.facebookPhotosUrl || "https://www.facebook.com/groups/393354891012356/media/photos";
+const GROUP_PHOTOS_URL = groupUrlArg
+  ? (groupUrlArg.includes("/media/photos") ? groupUrlArg : `${groupUrlArg.replace(/\/$/, "")}/media/photos`)
+  : (townConfig.facebookPhotosUrl || "https://www.facebook.com/groups/393354891012356/media/photos");
 const OUTPUT_DIR       = townArg === "estella-lizarra"
   ? path.join(__dirname, "../facebook-import")
   : path.join(__dirname, `../facebook-import/${townArg}`);
