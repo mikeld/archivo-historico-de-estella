@@ -243,13 +243,13 @@ async function main() {
 
   if (!SKIP_GRID) {
     while (photoUrls.size < MAX_PHOTOS && emptyScrolls < MAX_EMPTY_SCROLLS && scrollCount < MAX_SCROLLS_MODE) {
-      const links = await page.locator('a[href*="/photo/"], a[href*="/photos/"]').all();
+      const links = await page.locator('a[href*="/photo"], a[href*="fbid="]').all();
       let foundNew = 0;
       for (const link of links) {
         const href = await link.getAttribute("href").catch(() => "");
         if (!href) continue;
         const fullUrl = href.startsWith("http") ? href : "https://www.facebook.com" + href;
-        const photoId = fullUrl.match(/\/photo\/(\d+)/)?.[1] || fullUrl.match(/fbid=(\d+)/)?.[1];
+        const photoId = fullUrl.match(/\/photo(?:\/|\?)(\d+)/)?.[1] || fullUrl.match(/fbid=(\d+)/)?.[1] || fullUrl.match(/\/photos\/(\d+)/)?.[1];
         if (!photoId) continue;
         if (!photoUrls.has(photoId)) { photoUrls.add(photoId); foundNew++; }
       }
@@ -261,7 +261,17 @@ async function main() {
       // Guardar URLs cada 50 scrolls por si se interrumpe
       if (scrollCount % 50 === 0) saveJson(URLS_FILE, [...photoUrls]);
 
-      await page.evaluate(() => window.scrollBy(0, window.innerHeight * 3));
+      // Scroll en contenedor y ventana + wheel/PageDown para garantizar carga dinámica de FB
+      await page.evaluate(() => {
+        window.scrollBy(0, window.innerHeight * 3);
+        document.querySelectorAll("div").forEach((d) => {
+          if (d.scrollHeight > d.clientHeight && d.clientHeight > 300) {
+            d.scrollTop += 2500;
+          }
+        });
+      });
+      await page.mouse.wheel(0, 2500).catch(() => {});
+      await page.keyboard.press("PageDown").catch(() => {});
       await page.waitForTimeout(SCROLL_PAUSE_MS);
     }
 

@@ -24,8 +24,8 @@ export async function getArchivePhotos(): Promise<Photo[]> {
 
   fetchPromise = (async () => {
     try {
-      // 1. Intentar cargar desde el servidor local (Hostinger / dist)
-      const res = await fetch("/data/photos.json", { cache: "default" });
+      // 1. Cargar catálogo estático sin caché antigua del navegador
+      const res = await fetch(`/data/photos.json?v=${Date.now()}`, { cache: "no-cache" });
       if (res.ok) {
         const data = (await res.json()) as Photo[];
         if (Array.isArray(data) && data.length > 0) {

@@ -504,6 +504,36 @@ export function PhotoDetailModal({
                         <p className="font-bold text-gray-900 text-sm">{photo.collection}</p>
                       </div>
                     )}
+                    {photo.facebookPostUrl ? (
+                      <div className="bg-blue-50/80 p-3 rounded-xl border border-blue-200 col-span-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-700 font-bold text-xs flex items-center gap-1.5">
+                            <span>👥</span> Memoria comunitaria de Facebook ({photo.collection || "Grupo vecinal"})
+                          </span>
+                        </div>
+                        <a
+                          href={photo.facebookPostUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-semibold text-blue-700 hover:text-blue-900 underline flex items-center gap-1 shrink-0"
+                        >
+                          Ver en Facebook ↗
+                        </a>
+                      </div>
+                    ) : (photo.archiveReference || photo.collection?.includes("Archivo General de Navarra")) ? (
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 col-span-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-800 font-bold text-xs flex items-center gap-1.5">
+                            <span>🏛️</span> Fototeca del Archivo General de Navarra (AGN)
+                          </span>
+                        </div>
+                        {photo.archiveReference && (
+                          <span className="text-[11px] font-mono text-slate-600 bg-slate-200/60 px-2 py-0.5 rounded">
+                            {photo.archiveReference}
+                          </span>
+                        )}
+                      </div>
+                    ) : null}
                     {photo.source && (
                       <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
                         <div className="flex items-center gap-1.5 text-gray-400 mb-1"><LinkIcon className="w-3.5 h-3.5" /><span className="text-[10px] font-bold uppercase">Origen</span></div>

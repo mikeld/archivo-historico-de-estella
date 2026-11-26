@@ -815,11 +815,20 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
                     {photo.year}
                   </div>
                 )}
-                {photo.quality === "alta" && (
+                {/* Source badge (Archivo Oficial vs Facebook) */}
+                {photo.archiveReference || photo.collection?.includes("Archivo General de Navarra") ? (
+                  <div className="absolute top-3 left-3 bg-slate-900/85 backdrop-blur-sm text-white px-2 py-0.5 rounded-lg text-[10px] font-bold tracking-wide flex items-center gap-1 shadow-sm">
+                    <span>🏛️ Archivo Oficial</span>
+                  </div>
+                ) : photo.facebookPostUrl || photo.id.startsWith("fb_") || photo.collection?.includes("Facebook") ? (
+                  <div className="absolute top-3 left-3 bg-[#1877F2]/90 backdrop-blur-sm text-white px-2 py-0.5 rounded-lg text-[10px] font-bold tracking-wide flex items-center gap-1 shadow-sm">
+                    <span>👥 Memoria Facebook</span>
+                  </div>
+                ) : photo.quality === "alta" ? (
                   <div className="absolute top-3 left-3 bg-amber-500/90 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
                     HD
                   </div>
-                )}
+                ) : null}
 
                 {/* Favorite button */}
                 <button
