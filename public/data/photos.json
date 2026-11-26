@@ -15219,7 +15219,8 @@
     "thumbnailUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/irache/thumbs/fb_2201757093362799_0.webp",
     "createdAt": 1780924923746,
     "aiAnalysis": "La imagen muestra una vista aérea en blanco y negro de una zona montañosa con edificaciones. En primer plano, se distingue un complejo de edificios que parece ser un monasterio o una gran iglesia, con una estructura de contrafuertes prominente. A la derecha, se observa una serie de estructuras en forma de arcos o bóvedas, posiblemente parte de un acueducto o una construcción similar, ascendiendo por la ladera de la montaña. Más al fondo, se aprecian otras edificaciones y un puente, sugiriendo un asentamiento urbano o rural en un valle. El paisaje circundante es montañoso y árido.",
-    "town": "Irache"
+    "town": "Irache",
+    "merindad": "Estella"
   },
   {
     "id": "fb_3384397235182167_0",
@@ -20274,7 +20275,8 @@
     "imageUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/ayegui/photos/fb_2217786961759812_0.webp",
     "thumbnailUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/ayegui/thumbs/fb_2217786961759812_0.webp",
     "createdAt": 1780924844543,
-    "town": "Ayegui"
+    "town": "Ayegui",
+    "merindad": "Estella"
   },
   {
     "id": "fb_2217787328426442_0",
@@ -35158,7 +35160,8 @@
     "thumbnailUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/ayegui/thumbs/fb_3424533974501826_0.webp",
     "createdAt": 1780924607721,
     "aiAnalysis": "Fotografía en blanco y negro de las ruinas del Monasterio de Irache, mostrando una pared de piedra con varias arcadas góticas y una gran ventana ojival en la parte superior izquierda. El suelo es de tierra y se aprecian algunos restos de vegetación. La imagen captura la desolación y el estado de abandono del lugar en el momento de la toma.",
-    "town": "Ayegui"
+    "town": "Ayegui",
+    "merindad": "Estella"
   },
   {
     "id": "fb_2241380056067169_0",
@@ -45404,7 +45407,8 @@
     "imageUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/ayegui/photos/fb_4030186687240867_0.webp",
     "thumbnailUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/ayegui/thumbs/fb_4030186687240867_0.webp",
     "createdAt": 1780924440141,
-    "town": "Ayegui"
+    "town": "Ayegui",
+    "merindad": "Estella"
   },
   {
     "id": "fb_4030186977240838_0",
@@ -45468,7 +45472,8 @@
     "imageUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/ayegui/photos/fb_4030186977240838_0.webp",
     "thumbnailUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/ayegui/thumbs/fb_4030186977240838_0.webp",
     "createdAt": 1780924439025,
-    "town": "Ayegui"
+    "town": "Ayegui",
+    "merindad": "Estella"
   },
   {
     "id": "fb_4030187213907481_0",
@@ -45529,7 +45534,8 @@
     "thumbnailUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/ayegui/thumbs/fb_4030187213907481_0.webp",
     "createdAt": 1780924437865,
     "aiAnalysis": "Vista aérea en blanco y negro del Monasterio de Irache, con sus edificios principales y anexos, rodeado de campos de cultivo y vegetación. Se aprecian caminos y la topografía del terreno. En la parte inferior izquierda, se observa una estructura alargada que podría ser la fábrica de tejidos mencionada en el texto, y en la parte superior izquierda, un área con árboles que podría ser un cementerio o arboleda. Al fondo, se distinguen las montañas y un pequeño núcleo urbano.",
-    "town": "Ayegui"
+    "town": "Ayegui",
+    "merindad": "Estella"
   },
   {
     "id": "fb_4031409267118609_0",
@@ -49484,7 +49490,8 @@
     "imageUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/monjardn/photos/fb_2526296854379626_0.webp",
     "thumbnailUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/monjardn/thumbs/fb_2526296854379626_0.webp",
     "createdAt": 1780924376693,
-    "town": "Monjardín"
+    "town": "Monjardín",
+    "merindad": "Estella"
   },
   {
     "id": "fb_2526619107680734_0",
@@ -60751,7 +60758,8 @@
     "thumbnailUrl": "https://pub-bcb74c316f9a4ea699f7d0ac7a064336.r2.dev/ayegui/thumbs/fb_2999772613561239_0.webp",
     "createdAt": 1780924197309,
     "aiAnalysis": "Vista aérea del Monasterio de Irache, con sus edificios principales y la iglesia, rodeados de vegetación. Se observa una carretera serpenteante que desciende por la ladera, con algunas construcciones y un árbol en primer plano a la derecha. La imagen muestra un paisaje rural con edificaciones históricas.",
-    "town": "Ayegui"
+    "town": "Ayegui",
+    "merindad": "Estella"
   },
   {
     "id": "fb_3000051280200039_0",

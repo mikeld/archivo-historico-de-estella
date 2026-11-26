@@ -269,9 +269,25 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
         if (!allTermsMatch) return false;
       }
       if (selectedTown) {
-        const pTown = (photo.townSlug || photo.town || "Estella-Lizarra").toLowerCase();
-        if (!pTown.includes(selectedTown.toLowerCase()) && !(selectedTown === "estella-lizarra" && !photo.town)) {
-          return false;
+        if (selectedTown === "tierra-estella") {
+          const isTE =
+            photo.merindad === "Estella" ||
+            (photo.townSlug || photo.town || "").toLowerCase().includes("estella") ||
+            [
+              "viana", "ayegui", "irache", "monjardin", "monjardín", "arellano",
+              "abarzuza", "abárzuza", "lodosa", "san adrian", "san adrián", "san-adrian",
+              "los arcos", "los-arcos", "lerin", "lerín", "mendavia", "sartaguda",
+              "andocilla", "andosilla", "carcar", "cárcar", "sesma", "dicastillo",
+              "allo", "villatuerta", "cirauqui", "zirauki", "maneru", "mañeru",
+              "oteiza", "salinas de oro", "murieta", "ancin", "ancín", "amescoa",
+              "améscoa", "yerri", "allin", "allín", "berrueza", "lana", "urbasa"
+            ].some((t) => (photo.townSlug || photo.town || "").toLowerCase().includes(t));
+          if (!isTE) return false;
+        } else {
+          const pTown = (photo.townSlug || photo.town || "Estella-Lizarra").toLowerCase();
+          if (!pTown.includes(selectedTown.toLowerCase()) && !(selectedTown === "estella-lizarra" && !photo.town)) {
+            return false;
+          }
         }
       }
       if (filterWithPeople && (!photo.people || photo.people.length === 0)) {
@@ -440,6 +456,34 @@ export function Home({ user, userRole }: { user: User | null; userRole?: string 
               <span>🏰 Toda Navarra</span>
               <span className="text-[10px] opacity-70">({photos.length})</span>
             </button>
+            {(() => {
+              const teCount = photos.filter(
+                (p) =>
+                  p.merindad === "Estella" ||
+                  (p.townSlug || p.town || "").toLowerCase().includes("estella") ||
+                  [
+                    "viana", "ayegui", "irache", "monjardin", "monjardín", "arellano",
+                    "abarzuza", "abárzuza", "lodosa", "san adrian", "san adrián",
+                    "los arcos", "lerin", "lerín", "mendavia", "sartaguda", "sesma",
+                    "dicastillo", "allo", "villatuerta", "cirauqui", "salinas de oro"
+                  ].some((t) => (p.townSlug || p.town || "").toLowerCase().includes(t))
+              ).length;
+              const isSelected = selectedTown === "tierra-estella";
+              return (
+                <button
+                  onClick={() => setSelectedTown(isSelected ? null : "tierra-estella")}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer",
+                    isSelected
+                      ? "bg-amber-800 text-white border-amber-800 shadow-sm"
+                      : "bg-amber-50/80 text-amber-900 border-amber-200 hover:border-amber-400"
+                  )}
+                >
+                  <span>⭐ Tierra Estella</span>
+                  <span className="text-[10px] opacity-75">({teCount})</span>
+                </button>
+              );
+            })()}
             {NAVARRA_TOWNS.map((town) => {
               const count = photos.filter(
                 (p) =>
