@@ -38,7 +38,7 @@ const PROFILE_DIR      = path.join(__dirname, "../facebook-import/.browser-profi
 const limitArg          = process.argv.find(a => a.startsWith("--limit="))?.split("=")[1];
 const MAX_PHOTOS        = limitArg ? parseInt(limitArg, 10) : 6000;
 const SCROLL_PAUSE_MS   = 2000;
-const MAX_EMPTY_SCROLLS = 15;
+const MAX_EMPTY_SCROLLS = 60;
 const SAVE_EVERY        = 50;   // guardar cada 50 (no cada 20)
 
 const MODE: "all" | "new" = process.argv.includes("--mode=new") ? "new" : "all";
