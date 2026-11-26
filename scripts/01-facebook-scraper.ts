@@ -198,10 +198,10 @@ async function main() {
   console.log(` Estrategia: pestaña FOTOS del grupo (sin límite de scroll)`);
   console.log(`══════════════════════════════════════\n`);
 
-  // Usar perfil persistente → no pide login cada vez
+  // Usar perfil persistente → en modo automático o desatendido es 100% invisible (headless: true)
   const context = await chromium.launchPersistentContext(PROFILE_DIR, {
     channel: "chrome",
-    headless: false,
+    headless: IS_AUTO,
     viewport: { width: 1280, height: 900 },
     locale: "es-ES",
     args: ["--disable-blink-features=AutomationControlled"],
