@@ -61,8 +61,75 @@ const CWEBP = fs.existsSync("/opt/homebrew/bin/cwebp")
   ? "/usr/local/bin/cwebp"
   : "cwebp";
 
-function getTownInfo(place) {
-  const p = (place || "").toLowerCase();
+function getTownInfo(place, title = "") {
+  const p = `${title} ${place || ""}`.toLowerCase();
+  
+  if (p.includes("estella") || p.includes("lizarra") || p.includes("el puy") || p.includes("san pedro de la rúa") || p.includes("plaza de los fueros")) {
+    return { town: "Estella-Lizarra", slug: "estella-lizarra", merindad: "Estella" };
+  }
+  if (p.includes("viana")) {
+    return { town: "Viana", slug: "viana", merindad: "Estella" };
+  }
+  if (p.includes("los arcos")) {
+    return { town: "Los Arcos", slug: "los-arcos", merindad: "Estella" };
+  }
+  if (p.includes("lodosa")) {
+    return { town: "Lodosa", slug: "lodosa", merindad: "Estella" };
+  }
+  if (p.includes("san adrián") || p.includes("san adrian")) {
+    return { town: "San Adrián", slug: "san-adrian", merindad: "Estella" };
+  }
+  if (p.includes("lerin") || p.includes("lerín")) {
+    return { town: "Lerín", slug: "lerin", merindad: "Estella" };
+  }
+  if (p.includes("amescoa") || p.includes("améscoa") || p.includes("zudaire") || p.includes("gollano") || p.includes("baríndano") || p.includes("barindano")) {
+    return { town: "Valle de Améscoa", slug: "amescoa", merindad: "Estella" };
+  }
+  if (p.includes("urbasa")) {
+    return { town: "Sierra de Urbasa", slug: "urbasa", merindad: "Estella" };
+  }
+  if (p.includes("iranzu") || p.includes("abarzuza") || p.includes("abárzuza")) {
+    return { town: "Abárzuza-Abartzuza", slug: "abarzuza", merindad: "Estella" };
+  }
+  if (p.includes("mendavia")) {
+    return { town: "Mendavia", slug: "mendavia", merindad: "Estella" };
+  }
+  if (p.includes("andosilla")) {
+    return { town: "Andosilla", slug: "andosilla", merindad: "Estella" };
+  }
+  if (p.includes("sesma")) {
+    return { town: "Sesma", slug: "sesma", merindad: "Estella" };
+  }
+  if (p.includes("sartaguda")) {
+    return { town: "Sartaguda", slug: "sartaguda", merindad: "Estella" };
+  }
+  if (p.includes("azagra")) {
+    return { town: "Azagra", slug: "azagra", merindad: "Estella" };
+  }
+  if (p.includes("carcar") || p.includes("cárcar")) {
+    return { town: "Cárcar", slug: "carcar", merindad: "Estella" };
+  }
+  if (p.includes("mendaza") || p.includes("acedo")) {
+    return { town: "Mendaza / Acedo", slug: "mendaza", merindad: "Estella" };
+  }
+  if (p.includes("murieta")) {
+    return { town: "Murieta", slug: "murieta", merindad: "Estella" };
+  }
+  if (p.includes("ayegui") || p.includes("irache")) {
+    return { town: "Ayegui / Irache", slug: "ayegui", merindad: "Estella" };
+  }
+  if (p.includes("montejurra")) {
+    return { town: "Montejurra", slug: "montejurra", merindad: "Estella" };
+  }
+  if (p.includes("dicastillo")) {
+    return { town: "Dicastillo", slug: "dicastillo", merindad: "Estella" };
+  }
+  if (p.includes("villatuerta")) {
+    return { town: "Villatuerta", slug: "villatuerta", merindad: "Estella" };
+  }
+  if (p.includes("allo")) {
+    return { town: "Allo", slug: "allo", merindad: "Estella" };
+  }
   if (p.includes("pamplona") || p.includes("iruña")) {
     return { town: "Pamplona-Iruña", slug: "pamplona-iruna", merindad: "Pamplona" };
   }
@@ -87,6 +154,9 @@ function getTownInfo(place) {
   if (p.includes("corella")) {
     return { town: "Corella", slug: "corella", merindad: "Tudela" };
   }
+  if (p.includes("fitero")) {
+    return { town: "Fitero", slug: "fitero", merindad: "Tudela" };
+  }
   if (p.includes("larraga")) {
     return { town: "Larraga", slug: "larraga", merindad: "Olite" };
   }
@@ -99,38 +169,23 @@ function getTownInfo(place) {
   if (p.includes("roncal") || p.includes("erronkari")) {
     return { town: "Roncal-Erronkari", slug: "roncal-erronkari", merindad: "Sangüesa" };
   }
-  if (p.includes("baztan") || p.includes("elizondo")) {
+  if (p.includes("baztan") || p.includes("elizondo") || p.includes("bertiz") || p.includes("oronoz")) {
     return { town: "Elizondo (Baztan)", slug: "elizondo-baztan", merindad: "Pamplona" };
   }
-  if (p.includes("etxauri")) {
+  if (p.includes("etxauri") || p.includes("echauri")) {
     return { town: "Etxauri", slug: "etxauri", merindad: "Pamplona" };
+  }
+  if (p.includes("atallo") || p.includes("huici") || p.includes("larraun") || p.includes("lecumberri")) {
+    return { town: "Larraun-Lekunberri", slug: "larraun", merindad: "Pamplona" };
+  }
+  if (p.includes("burguete") || p.includes("auritz")) {
+    return { town: "Burguete-Auritz", slug: "burguete-auritz", merindad: "Sangüesa" };
   }
   if (p.includes("olazti") || p.includes("olazagutía")) {
     return { town: "Olazti / Olazagutía", slug: "olazagutia", merindad: "Pamplona" };
   }
   if (p.includes("lizarraga") || p.includes("ergoiena")) {
     return { town: "Lizarraga (Ergoiena)", slug: "ergoiena", merindad: "Pamplona" };
-  }
-  if (p.includes("murieta")) {
-    return { town: "Murieta", slug: "murieta", merindad: "Estella" };
-  }
-  if (p.includes("mendaza") || p.includes("acedo")) {
-    return { town: "Mendaza / Acedo", slug: "mendaza", merindad: "Estella" };
-  }
-  if (p.includes("viana")) {
-    return { town: "Viana", slug: "viana", merindad: "Estella" };
-  }
-  if (p.includes("los arcos")) {
-    return { town: "Los Arcos", slug: "los-arcos", merindad: "Estella" };
-  }
-  if (p.includes("san adrián") || p.includes("san adrian")) {
-    return { town: "San Adrián", slug: "san-adrian", merindad: "Estella" };
-  }
-  if (p.includes("lodosa")) {
-    return { town: "Lodosa", slug: "lodosa", merindad: "Estella" };
-  }
-  if (p.includes("andosilla")) {
-    return { town: "Andosilla", slug: "andosilla", merindad: "Estella" };
   }
   if (p.includes("peralta") || p.includes("azkoien")) {
     return { town: "Peralta-Azkoien", slug: "peralta-azkoien", merindad: "Olite" };
@@ -215,7 +270,18 @@ async function main() {
       continue;
     }
 
-    const townInfo = getTownInfo(docEntry.place);
+    const nonNavarraPatterns = [
+      /\bpar[ií]s\b/i, /\bmadrid\b/i, /\bliverpool\b/i, /\breino unido\b/i, /\blondres\b/i,
+      /\bans[oó]\b/i, /\bhuesca\b/i, /\bguip[uú]zcoa\b/i, /\bsan sebasti[aá]n\b/i, /\bondarreta\b/i,
+      /\bbayona\b/i, /\bfrancia\b/i, /\bprusianos\b/i, /\bcuirassiers\b/i, /\bamiens\b/i,
+      /\bcosta atl[aá]ntica\b/i, /\bciudad brit[aá]nica\b/i, /\blocali[zd]ad europea\b/i, /\btolosa\b/i
+    ];
+    if (nonNavarraPatterns.some((p) => p.test(docEntry.title || ""))) {
+      skippedCount++;
+      continue;
+    }
+
+    const townInfo = getTownInfo(docEntry.place, docEntry.title);
     const landmarkId = townInfo.slug === "estella-lizarra" ? detectLandmark(docEntry.title || "", docEntry.notes || "") : undefined;
 
     const srcPath = path.join(NAVARRA_PHOTOS_DIR, file);

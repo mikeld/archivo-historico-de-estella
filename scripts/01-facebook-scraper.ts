@@ -237,12 +237,15 @@ async function main() {
   const photoUrls = new Set<string>(loadJson<string[]>(URLS_FILE, []));
   if (photoUrls.size > 0) console.log(`  Reanudando: ${photoUrls.size} URLs ya recopiladas\n`);
 
+  const initialUrlsCount = photoUrls.size;
+  let hasReachedFrontier = initialUrlsCount === 0;
   let emptyScrolls = 0;
   let scrollCount  = 0;
   const MAX_SCROLLS_MODE = MODE === "new" ? 6 : 999999;
+  const STOP_EMPTY_LIMIT = 100;
 
   if (!SKIP_GRID) {
-    while (photoUrls.size < MAX_PHOTOS && emptyScrolls < MAX_EMPTY_SCROLLS && scrollCount < MAX_SCROLLS_MODE) {
+    while (photoUrls.size < MAX_PHOTOS && emptyScrolls < STOP_EMPTY_LIMIT && scrollCount < MAX_SCROLLS_MODE) {
       const links = await page.locator('a[href*="/photo"], a[href*="fbid="]').all();
       let foundNew = 0;
       for (const link of links) {
@@ -254,9 +257,16 @@ async function main() {
         if (!photoUrls.has(photoId)) { photoUrls.add(photoId); foundNew++; }
       }
 
-      emptyScrolls = foundNew > 0 ? 0 : emptyScrolls + 1;
+      if (foundNew > 0) {
+        emptyScrolls = 0;
+        hasReachedFrontier = true;
+      } else {
+        if (hasReachedFrontier || scrollCount > 250) {
+          emptyScrolls++;
+        }
+      }
       scrollCount++;
-      process.stdout.write(`\rFotos encontradas: ${photoUrls.size} | Scroll: ${scrollCount} | Sin nuevas: ${emptyScrolls}/${MAX_EMPTY_SCROLLS}   `);
+      process.stdout.write(`\rFotos encontradas: ${photoUrls.size} | Scroll: ${scrollCount} | Sin nuevas: ${emptyScrolls}/${STOP_EMPTY_LIMIT} (frontera: ${hasReachedFrontier ? "sí" : "avanzando..."})   `);
 
       // Guardar URLs cada 50 scrolls por si se interrumpe
       if (scrollCount % 50 === 0) saveJson(URLS_FILE, [...photoUrls]);
